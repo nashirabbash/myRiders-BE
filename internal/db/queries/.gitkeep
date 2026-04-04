@@ -1,0 +1,3 @@
+# SQL query files for sqlc code generation
+# Format: rides.sql, users.sql, vehicles.sql, etc.
+# Example: -- name: GetUserByID :one

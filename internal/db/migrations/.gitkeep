@@ -1,0 +1,2 @@
+# Migration files will be placed here (Phase 2)
+# Format: 001_init.sql, 002_indexes.sql, etc.
