@@ -165,30 +165,27 @@ func (h *SocialHandler) LikeRide(c *gin.Context) {
 	}
 
 	// Send push notification to ride owner asynchronously only if this is a new like
-	// Use context.Background() instead of c.Request.Context() which gets canceled after handler returns
+	// Pre-fetch user details in request context before spawning goroutine to reduce async DB load
 	if isNewLike {
-		go func() {
-			bgCtx := context.Background()
-
-			rideOwner, err := h.queries.GetUserByID(bgCtx, ride.UserID)
-			if err != nil {
-				log.Printf("Error fetching ride owner for notification: %v", err)
-				return
-			}
-
-			liker, err := h.queries.GetUserByID(bgCtx, userUUID)
+		rideOwner, err := h.queries.GetUserByID(c.Request.Context(), ride.UserID)
+		if err != nil {
+			log.Printf("Error fetching ride owner for notification: %v", err)
+		} else {
+			liker, err := h.queries.GetUserByID(c.Request.Context(), userUUID)
 			if err != nil {
 				log.Printf("Error fetching liker for notification: %v", err)
-				return
+			} else {
+				// Now spawn goroutine with pre-fetched data (no additional DB queries needed)
+				go func(owner, user sqlc.GetUserByIDRow, rideTitle string) {
+					if owner.PushToken.Valid {
+						notificationService := service.NewNotificationService()
+						if err := notificationService.SendLikeNotification(context.Background(), owner.PushToken.String, user.DisplayName, rideTitle); err != nil {
+							log.Printf("Error sending like notification: %v", err)
+						}
+					}
+				}(rideOwner, liker, ride.Title.String)
 			}
-
-			if rideOwner.PushToken.Valid {
-				notificationService := service.NewNotificationService()
-				if err := notificationService.SendLikeNotification(bgCtx, rideOwner.PushToken.String, liker.DisplayName, ride.Title.String); err != nil {
-					log.Printf("Error sending like notification: %v", err)
-				}
-			}
-		}()
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "LIKE_SUCCESS"})
@@ -249,29 +246,26 @@ func (h *SocialHandler) CommentRide(c *gin.Context) {
 	}
 
 	// Send push notification to ride owner asynchronously
-	// Use context.Background() instead of c.Request.Context() which gets canceled after handler returns
-	go func() {
-		bgCtx := context.Background()
-
-		rideOwner, err := h.queries.GetUserByID(bgCtx, ride.UserID)
-		if err != nil {
-			log.Printf("Error fetching ride owner for notification: %v", err)
-			return
-		}
-
-		commenter, err := h.queries.GetUserByID(bgCtx, userUUID)
+	// Pre-fetch user details in request context before spawning goroutine to reduce async DB load
+	rideOwner, err := h.queries.GetUserByID(c.Request.Context(), ride.UserID)
+	if err != nil {
+		log.Printf("Error fetching ride owner for notification: %v", err)
+	} else {
+		commenter, err := h.queries.GetUserByID(c.Request.Context(), userUUID)
 		if err != nil {
 			log.Printf("Error fetching commenter for notification: %v", err)
-			return
+		} else {
+			// Now spawn goroutine with pre-fetched data (no additional DB queries needed)
+			go func(owner, user sqlc.GetUserByIDRow, rideTitle string) {
+				if owner.PushToken.Valid {
+					notificationService := service.NewNotificationService()
+					if err := notificationService.SendCommentNotification(context.Background(), owner.PushToken.String, user.DisplayName, rideTitle); err != nil {
+						log.Printf("Error sending comment notification: %v", err)
+					}
+				}
+			}(rideOwner, commenter, ride.Title.String)
 		}
-
-		if rideOwner.PushToken.Valid {
-			notificationService := service.NewNotificationService()
-			if err := notificationService.SendCommentNotification(bgCtx, rideOwner.PushToken.String, commenter.DisplayName, ride.Title.String); err != nil {
-				log.Printf("Error sending comment notification: %v", err)
-			}
-		}
-	}()
+	}
 
 	c.JSON(http.StatusCreated, gin.H{
 		"id":         comment.ID.String(),
