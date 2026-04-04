@@ -13,19 +13,18 @@ import (
 
 const computeAllTimeRankings = `-- name: ComputeAllTimeRankings :many
 SELECT
-    u.id as user_id,
-    COALESCE(SUM(r.distance_km), 0) as total_km,
+    r.user_id,
+    SUM(r.distance_km) as total_km,
     COUNT(DISTINCT r.id) as total_rides
-FROM users u
-LEFT JOIN rides r ON u.id = r.user_id AND r.status = 'completed'
-GROUP BY u.id
-HAVING COUNT(DISTINCT r.id) > 0 OR SUM(r.distance_km) > 0
+FROM rides r
+WHERE r.status = 'completed'
+GROUP BY r.user_id
 ORDER BY total_km DESC, total_rides DESC
 `
 
 type ComputeAllTimeRankingsRow struct {
 	UserID     pgtype.UUID `db:"user_id" json:"user_id"`
-	TotalKm    interface{} `db:"total_km" json:"total_km"`
+	TotalKm    int64       `db:"total_km" json:"total_km"`
 	TotalRides int64       `db:"total_rides" json:"total_rides"`
 }
 
@@ -51,24 +50,23 @@ func (q *Queries) ComputeAllTimeRankings(ctx context.Context) ([]ComputeAllTimeR
 
 const computeAllTimeRankingsByVehicle = `-- name: ComputeAllTimeRankingsByVehicle :many
 SELECT
-    u.id as user_id,
+    r.user_id,
     v.type as vehicle_type,
-    COALESCE(SUM(r.distance_km), 0) as total_km,
+    SUM(r.distance_km) as total_km,
     COUNT(DISTINCT r.id) as total_rides
-FROM users u
-LEFT JOIN rides r ON u.id = r.user_id AND r.status = 'completed'
-LEFT JOIN vehicles v ON r.vehicle_id = v.id
-WHERE v.type = $1
-GROUP BY u.id, v.type
-HAVING COUNT(DISTINCT r.id) > 0 OR SUM(r.distance_km) > 0
+FROM rides r
+JOIN vehicles v ON r.vehicle_id = v.id
+WHERE r.status = 'completed'
+  AND v.type = $1
+GROUP BY r.user_id, v.type
 ORDER BY total_km DESC, total_rides DESC
 `
 
 type ComputeAllTimeRankingsByVehicleRow struct {
-	UserID      pgtype.UUID     `db:"user_id" json:"user_id"`
-	VehicleType NullVehicleType `db:"vehicle_type" json:"vehicle_type"`
-	TotalKm     interface{}     `db:"total_km" json:"total_km"`
-	TotalRides  int64           `db:"total_rides" json:"total_rides"`
+	UserID      pgtype.UUID `db:"user_id" json:"user_id"`
+	VehicleType VehicleType `db:"vehicle_type" json:"vehicle_type"`
+	TotalKm     int64       `db:"total_km" json:"total_km"`
+	TotalRides  int64       `db:"total_rides" json:"total_rides"`
 }
 
 func (q *Queries) ComputeAllTimeRankingsByVehicle(ctx context.Context, type_ VehicleType) ([]ComputeAllTimeRankingsByVehicleRow, error) {
@@ -98,20 +96,19 @@ func (q *Queries) ComputeAllTimeRankingsByVehicle(ctx context.Context, type_ Veh
 
 const computeMonthlyRankings = `-- name: ComputeMonthlyRankings :many
 SELECT
-    u.id as user_id,
-    COALESCE(SUM(r.distance_km), 0) as total_km,
+    r.user_id,
+    SUM(r.distance_km) as total_km,
     COUNT(DISTINCT r.id) as total_rides
-FROM users u
-LEFT JOIN rides r ON u.id = r.user_id AND r.status = 'completed'
-    AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '1 month'
-GROUP BY u.id
-HAVING COUNT(DISTINCT r.id) > 0 OR SUM(r.distance_km) > 0
+FROM rides r
+WHERE r.status = 'completed'
+  AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '1 month'
+GROUP BY r.user_id
 ORDER BY total_km DESC, total_rides DESC
 `
 
 type ComputeMonthlyRankingsRow struct {
 	UserID     pgtype.UUID `db:"user_id" json:"user_id"`
-	TotalKm    interface{} `db:"total_km" json:"total_km"`
+	TotalKm    int64       `db:"total_km" json:"total_km"`
 	TotalRides int64       `db:"total_rides" json:"total_rides"`
 }
 
@@ -137,17 +134,16 @@ func (q *Queries) ComputeMonthlyRankings(ctx context.Context, startedAt pgtype.T
 
 const computeMonthlyRankingsByVehicle = `-- name: ComputeMonthlyRankingsByVehicle :many
 SELECT
-    u.id as user_id,
+    r.user_id,
     v.type as vehicle_type,
-    COALESCE(SUM(r.distance_km), 0) as total_km,
+    SUM(r.distance_km) as total_km,
     COUNT(DISTINCT r.id) as total_rides
-FROM users u
-LEFT JOIN rides r ON u.id = r.user_id AND r.status = 'completed'
-    AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '1 month'
-LEFT JOIN vehicles v ON r.vehicle_id = v.id
-WHERE v.type = $2
-GROUP BY u.id, v.type
-HAVING COUNT(DISTINCT r.id) > 0 OR SUM(r.distance_km) > 0
+FROM rides r
+JOIN vehicles v ON r.vehicle_id = v.id
+WHERE r.status = 'completed'
+  AND v.type = $2
+  AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '1 month'
+GROUP BY r.user_id, v.type
 ORDER BY total_km DESC, total_rides DESC
 `
 
@@ -157,10 +153,10 @@ type ComputeMonthlyRankingsByVehicleParams struct {
 }
 
 type ComputeMonthlyRankingsByVehicleRow struct {
-	UserID      pgtype.UUID     `db:"user_id" json:"user_id"`
-	VehicleType NullVehicleType `db:"vehicle_type" json:"vehicle_type"`
-	TotalKm     interface{}     `db:"total_km" json:"total_km"`
-	TotalRides  int64           `db:"total_rides" json:"total_rides"`
+	UserID      pgtype.UUID `db:"user_id" json:"user_id"`
+	VehicleType VehicleType `db:"vehicle_type" json:"vehicle_type"`
+	TotalKm     int64       `db:"total_km" json:"total_km"`
+	TotalRides  int64       `db:"total_rides" json:"total_rides"`
 }
 
 func (q *Queries) ComputeMonthlyRankingsByVehicle(ctx context.Context, arg ComputeMonthlyRankingsByVehicleParams) ([]ComputeMonthlyRankingsByVehicleRow, error) {
@@ -191,24 +187,24 @@ func (q *Queries) ComputeMonthlyRankingsByVehicle(ctx context.Context, arg Compu
 const computeWeeklyRankings = `-- name: ComputeWeeklyRankings :many
 
 SELECT
-    u.id as user_id,
-    COALESCE(SUM(r.distance_km), 0) as total_km,
+    r.user_id,
+    SUM(r.distance_km) as total_km,
     COUNT(DISTINCT r.id) as total_rides
-FROM users u
-LEFT JOIN rides r ON u.id = r.user_id AND r.status = 'completed'
-    AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '7 days'
-GROUP BY u.id
-HAVING COUNT(DISTINCT r.id) > 0 OR SUM(r.distance_km) > 0
+FROM rides r
+WHERE r.status = 'completed'
+  AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '7 days'
+GROUP BY r.user_id
 ORDER BY total_km DESC, total_rides DESC
 `
 
 type ComputeWeeklyRankingsRow struct {
 	UserID     pgtype.UUID `db:"user_id" json:"user_id"`
-	TotalKm    interface{} `db:"total_km" json:"total_km"`
+	TotalKm    int64       `db:"total_km" json:"total_km"`
 	TotalRides int64       `db:"total_rides" json:"total_rides"`
 }
 
 // Compute rankings for current period (used by cron job)
+// Optimized to scan rides table instead of users table for O(active_rides) performance
 func (q *Queries) ComputeWeeklyRankings(ctx context.Context, startedAt pgtype.Timestamptz) ([]ComputeWeeklyRankingsRow, error) {
 	rows, err := q.db.Query(ctx, computeWeeklyRankings, startedAt)
 	if err != nil {
@@ -231,17 +227,16 @@ func (q *Queries) ComputeWeeklyRankings(ctx context.Context, startedAt pgtype.Ti
 
 const computeWeeklyRankingsByVehicle = `-- name: ComputeWeeklyRankingsByVehicle :many
 SELECT
-    u.id as user_id,
+    r.user_id,
     v.type as vehicle_type,
-    COALESCE(SUM(r.distance_km), 0) as total_km,
+    SUM(r.distance_km) as total_km,
     COUNT(DISTINCT r.id) as total_rides
-FROM users u
-LEFT JOIN rides r ON u.id = r.user_id AND r.status = 'completed'
-    AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '7 days'
-LEFT JOIN vehicles v ON r.vehicle_id = v.id
-WHERE v.type = $2
-GROUP BY u.id, v.type
-HAVING COUNT(DISTINCT r.id) > 0 OR SUM(r.distance_km) > 0
+FROM rides r
+JOIN vehicles v ON r.vehicle_id = v.id
+WHERE r.status = 'completed'
+  AND v.type = $2
+  AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '7 days'
+GROUP BY r.user_id, v.type
 ORDER BY total_km DESC, total_rides DESC
 `
 
@@ -251,10 +246,10 @@ type ComputeWeeklyRankingsByVehicleParams struct {
 }
 
 type ComputeWeeklyRankingsByVehicleRow struct {
-	UserID      pgtype.UUID     `db:"user_id" json:"user_id"`
-	VehicleType NullVehicleType `db:"vehicle_type" json:"vehicle_type"`
-	TotalKm     interface{}     `db:"total_km" json:"total_km"`
-	TotalRides  int64           `db:"total_rides" json:"total_rides"`
+	UserID      pgtype.UUID `db:"user_id" json:"user_id"`
+	VehicleType VehicleType `db:"vehicle_type" json:"vehicle_type"`
+	TotalKm     int64       `db:"total_km" json:"total_km"`
+	TotalRides  int64       `db:"total_rides" json:"total_rides"`
 }
 
 func (q *Queries) ComputeWeeklyRankingsByVehicle(ctx context.Context, arg ComputeWeeklyRankingsByVehicleParams) ([]ComputeWeeklyRankingsByVehicleRow, error) {

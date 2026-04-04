@@ -8,10 +8,10 @@ CREATE TYPE ride_status AS ENUM ('active', 'completed', 'abandoned');
 -- Users table
 CREATE TABLE users (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    username     TEXT NOT NULL,
+    username     TEXT NOT NULL CHECK (LENGTH(username) <= 50),
     email        TEXT NOT NULL,
     password_hash TEXT NOT NULL,
-    display_name TEXT NOT NULL,
+    display_name TEXT NOT NULL CHECK (LENGTH(display_name) <= 100),
     avatar_url   TEXT,
     push_token   TEXT,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -85,7 +85,7 @@ CREATE TABLE ride_comments (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     ride_id    UUID NOT NULL REFERENCES rides(id) ON DELETE CASCADE,
     user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    content    VARCHAR(280) NOT NULL,
+    content    VARCHAR(280) NOT NULL CHECK (LENGTH(content) <= 280),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

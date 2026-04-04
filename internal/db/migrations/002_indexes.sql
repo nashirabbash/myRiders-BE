@@ -11,6 +11,8 @@ CREATE INDEX idx_rides_vehicle_id ON rides(vehicle_id);
 CREATE INDEX idx_rides_user_completed ON rides(user_id, started_at DESC) WHERE status = 'completed';
 CREATE INDEX idx_rides_status ON rides(status);
 CREATE INDEX idx_rides_started_at ON rides(started_at DESC);
+-- Optimized partial index for leaderboard cron job (time-range queries on completed rides)
+CREATE INDEX idx_rides_completed_time ON rides(started_at DESC) WHERE status = 'completed';
 
 -- GPS points indexes
 CREATE INDEX idx_gps_points_ride_id ON ride_gps_points(ride_id);

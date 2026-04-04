@@ -49,82 +49,77 @@ FROM leaderboard_entries
 WHERE period_type = $1 AND period_start = $2;
 
 -- Compute rankings for current period (used by cron job)
+-- Optimized to scan rides table instead of users table for O(active_rides) performance
 
 -- name: ComputeWeeklyRankings :many
 SELECT
-    u.id as user_id,
-    COALESCE(SUM(r.distance_km), 0) as total_km,
+    r.user_id,
+    SUM(r.distance_km) as total_km,
     COUNT(DISTINCT r.id) as total_rides
-FROM users u
-LEFT JOIN rides r ON u.id = r.user_id AND r.status = 'completed'
-    AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '7 days'
-GROUP BY u.id
-HAVING COUNT(DISTINCT r.id) > 0 OR SUM(r.distance_km) > 0
+FROM rides r
+WHERE r.status = 'completed'
+  AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '7 days'
+GROUP BY r.user_id
 ORDER BY total_km DESC, total_rides DESC;
 
 -- name: ComputeWeeklyRankingsByVehicle :many
 SELECT
-    u.id as user_id,
+    r.user_id,
     v.type as vehicle_type,
-    COALESCE(SUM(r.distance_km), 0) as total_km,
+    SUM(r.distance_km) as total_km,
     COUNT(DISTINCT r.id) as total_rides
-FROM users u
-LEFT JOIN rides r ON u.id = r.user_id AND r.status = 'completed'
-    AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '7 days'
-LEFT JOIN vehicles v ON r.vehicle_id = v.id
-WHERE v.type = $2
-GROUP BY u.id, v.type
-HAVING COUNT(DISTINCT r.id) > 0 OR SUM(r.distance_km) > 0
+FROM rides r
+JOIN vehicles v ON r.vehicle_id = v.id
+WHERE r.status = 'completed'
+  AND v.type = $2
+  AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '7 days'
+GROUP BY r.user_id, v.type
 ORDER BY total_km DESC, total_rides DESC;
 
 -- name: ComputeMonthlyRankings :many
 SELECT
-    u.id as user_id,
-    COALESCE(SUM(r.distance_km), 0) as total_km,
+    r.user_id,
+    SUM(r.distance_km) as total_km,
     COUNT(DISTINCT r.id) as total_rides
-FROM users u
-LEFT JOIN rides r ON u.id = r.user_id AND r.status = 'completed'
-    AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '1 month'
-GROUP BY u.id
-HAVING COUNT(DISTINCT r.id) > 0 OR SUM(r.distance_km) > 0
+FROM rides r
+WHERE r.status = 'completed'
+  AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '1 month'
+GROUP BY r.user_id
 ORDER BY total_km DESC, total_rides DESC;
 
 -- name: ComputeMonthlyRankingsByVehicle :many
 SELECT
-    u.id as user_id,
+    r.user_id,
     v.type as vehicle_type,
-    COALESCE(SUM(r.distance_km), 0) as total_km,
+    SUM(r.distance_km) as total_km,
     COUNT(DISTINCT r.id) as total_rides
-FROM users u
-LEFT JOIN rides r ON u.id = r.user_id AND r.status = 'completed'
-    AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '1 month'
-LEFT JOIN vehicles v ON r.vehicle_id = v.id
-WHERE v.type = $2
-GROUP BY u.id, v.type
-HAVING COUNT(DISTINCT r.id) > 0 OR SUM(r.distance_km) > 0
+FROM rides r
+JOIN vehicles v ON r.vehicle_id = v.id
+WHERE r.status = 'completed'
+  AND v.type = $2
+  AND r.started_at >= $1 AND r.started_at < $1 + INTERVAL '1 month'
+GROUP BY r.user_id, v.type
 ORDER BY total_km DESC, total_rides DESC;
 
 -- name: ComputeAllTimeRankings :many
 SELECT
-    u.id as user_id,
-    COALESCE(SUM(r.distance_km), 0) as total_km,
+    r.user_id,
+    SUM(r.distance_km) as total_km,
     COUNT(DISTINCT r.id) as total_rides
-FROM users u
-LEFT JOIN rides r ON u.id = r.user_id AND r.status = 'completed'
-GROUP BY u.id
-HAVING COUNT(DISTINCT r.id) > 0 OR SUM(r.distance_km) > 0
+FROM rides r
+WHERE r.status = 'completed'
+GROUP BY r.user_id
 ORDER BY total_km DESC, total_rides DESC;
 
 -- name: ComputeAllTimeRankingsByVehicle :many
 SELECT
-    u.id as user_id,
+    r.user_id,
     v.type as vehicle_type,
-    COALESCE(SUM(r.distance_km), 0) as total_km,
+    SUM(r.distance_km) as total_km,
     COUNT(DISTINCT r.id) as total_rides
-FROM users u
-LEFT JOIN rides r ON u.id = r.user_id AND r.status = 'completed'
-LEFT JOIN vehicles v ON r.vehicle_id = v.id
-WHERE v.type = $1
-GROUP BY u.id, v.type
-HAVING COUNT(DISTINCT r.id) > 0 OR SUM(r.distance_km) > 0
+FROM rides r
+JOIN vehicles v ON r.vehicle_id = v.id
+WHERE r.status = 'completed'
+  AND v.type = $1
+GROUP BY r.user_id, v.type
 ORDER BY total_km DESC, total_rides DESC;
