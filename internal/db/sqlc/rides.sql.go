@@ -220,6 +220,36 @@ func (q *Queries) GetRideCount(ctx context.Context, userID pgtype.UUID) (int64, 
 	return count, err
 }
 
+const getRideForUpdate = `-- name: GetRideForUpdate :one
+SELECT id, user_id, vehicle_id, title, started_at, ended_at, distance_km, duration_seconds, max_speed_kmh, avg_speed_kmh, elevation_m, calories, route_summary, status, created_at, updated_at
+FROM rides
+WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) GetRideForUpdate(ctx context.Context, id pgtype.UUID) (Ride, error) {
+	row := q.db.QueryRow(ctx, getRideForUpdate, id)
+	var i Ride
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.VehicleID,
+		&i.Title,
+		&i.StartedAt,
+		&i.EndedAt,
+		&i.DistanceKm,
+		&i.DurationSeconds,
+		&i.MaxSpeedKmh,
+		&i.AvgSpeedKmh,
+		&i.ElevationM,
+		&i.Calories,
+		&i.RouteSummary,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserRideStats = `-- name: GetUserRideStats :one
 SELECT
     COUNT(*) as total_rides,
@@ -276,6 +306,38 @@ func (q *Queries) InsertGPSPoint(ctx context.Context, arg InsertGPSPointParams) 
 		arg.SpeedKmh,
 		arg.ElevationM,
 		arg.RecordedAt,
+	)
+	return err
+}
+
+const insertGPSPointsBatch = `-- name: InsertGPSPointsBatch :exec
+INSERT INTO ride_gps_points (ride_id, latitude, longitude, speed_kmh, elevation_m, recorded_at)
+SELECT
+    UNNEST($1::uuid[]) as ride_id,
+    UNNEST($2::float8[]) as latitude,
+    UNNEST($3::float8[]) as longitude,
+    UNNEST($4::float8[]) as speed_kmh,
+    UNNEST($5::float8[]) as elevation_m,
+    UNNEST($6::timestamptz[]) as recorded_at
+`
+
+type InsertGPSPointsBatchParams struct {
+	RideIds     []pgtype.UUID        `db:"ride_ids" json:"ride_ids"`
+	Latitudes   []float64            `db:"latitudes" json:"latitudes"`
+	Longitudes  []float64            `db:"longitudes" json:"longitudes"`
+	Speeds      []float64            `db:"speeds" json:"speeds"`
+	Elevations  []float64            `db:"elevations" json:"elevations"`
+	RecordedAts []pgtype.Timestamptz `db:"recorded_ats" json:"recorded_ats"`
+}
+
+func (q *Queries) InsertGPSPointsBatch(ctx context.Context, arg InsertGPSPointsBatchParams) error {
+	_, err := q.db.Exec(ctx, insertGPSPointsBatch,
+		arg.RideIds,
+		arg.Latitudes,
+		arg.Longitudes,
+		arg.Speeds,
+		arg.Elevations,
+		arg.RecordedAts,
 	)
 	return err
 }
