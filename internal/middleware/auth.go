@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgtype"
 	jwtpkg "github.com/nashirabbash/trackride/pkg/jwt"
 )
 
@@ -44,7 +45,15 @@ func Auth(accessSecret string) gin.HandlerFunc {
 		}
 
 		// Store user_id in context for downstream handlers
-		c.Set("user_id", claims.UserID())
+		userID := claims.UserID()
+		c.Set("user_id", userID)
+
+		// Also parse and store the UUID to avoid repetitive parsing in handlers
+		var userUUID pgtype.UUID
+		if err := userUUID.Scan(userID); err == nil {
+			c.Set("user_uuid", userUUID)
+		}
+
 		c.Next()
 	}
 }
@@ -68,4 +77,21 @@ func GetUserID(c *gin.Context) (string, bool) {
 	}
 
 	return id, true
+}
+
+// GetUserUUID safely retrieves the pre-parsed user UUID from the Gin context.
+// Returns the UUID and a boolean indicating success.
+// This eliminates repetitive UUID parsing in handlers (parsed once in Auth middleware).
+func GetUserUUID(c *gin.Context) (pgtype.UUID, bool) {
+	cachedUUID, exists := c.Get("user_uuid")
+	if !exists {
+		return pgtype.UUID{}, false
+	}
+
+	uuid, ok := cachedUUID.(pgtype.UUID)
+	if !ok {
+		return pgtype.UUID{}, false
+	}
+
+	return uuid, true
 }

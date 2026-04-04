@@ -40,18 +40,6 @@ func NewVehiclesHandler(queries *dbsqlc.Queries, cfg *config.Config) *VehiclesHa
 	return &VehiclesHandler{queries: queries, cfg: cfg}
 }
 
-// List placeholder
-func (h *VehiclesHandler) List(c *gin.Context) {}
-
-// Create placeholder
-func (h *VehiclesHandler) Create(c *gin.Context) {}
-
-// Update placeholder
-func (h *VehiclesHandler) Update(c *gin.Context) {}
-
-// Delete placeholder
-func (h *VehiclesHandler) Delete(c *gin.Context) {}
-
 // RidesHandler manages ride-related endpoints
 type RidesHandler struct {
 	queries *dbsqlc.Queries
