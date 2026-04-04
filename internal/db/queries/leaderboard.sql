@@ -50,11 +50,12 @@ WHERE period_type = $1 AND period_start = $2;
 
 -- Compute rankings for current period (used by cron job)
 -- Optimized to scan rides table instead of users table for O(active_rides) performance
+-- Explicit ::FLOAT8 cast on SUM() to prevent sqlc type inference bugs
 
 -- name: ComputeWeeklyRankings :many
 SELECT
     r.user_id,
-    SUM(r.distance_km) as total_km,
+    SUM(r.distance_km)::FLOAT8 as total_km,
     COUNT(DISTINCT r.id) as total_rides
 FROM rides r
 WHERE r.status = 'completed'
@@ -66,7 +67,7 @@ ORDER BY total_km DESC, total_rides DESC;
 SELECT
     r.user_id,
     v.type as vehicle_type,
-    SUM(r.distance_km) as total_km,
+    SUM(r.distance_km)::FLOAT8 as total_km,
     COUNT(DISTINCT r.id) as total_rides
 FROM rides r
 JOIN vehicles v ON r.vehicle_id = v.id
@@ -79,7 +80,7 @@ ORDER BY total_km DESC, total_rides DESC;
 -- name: ComputeMonthlyRankings :many
 SELECT
     r.user_id,
-    SUM(r.distance_km) as total_km,
+    SUM(r.distance_km)::FLOAT8 as total_km,
     COUNT(DISTINCT r.id) as total_rides
 FROM rides r
 WHERE r.status = 'completed'
@@ -91,7 +92,7 @@ ORDER BY total_km DESC, total_rides DESC;
 SELECT
     r.user_id,
     v.type as vehicle_type,
-    SUM(r.distance_km) as total_km,
+    SUM(r.distance_km)::FLOAT8 as total_km,
     COUNT(DISTINCT r.id) as total_rides
 FROM rides r
 JOIN vehicles v ON r.vehicle_id = v.id
@@ -104,7 +105,7 @@ ORDER BY total_km DESC, total_rides DESC;
 -- name: ComputeAllTimeRankings :many
 SELECT
     r.user_id,
-    SUM(r.distance_km) as total_km,
+    SUM(r.distance_km)::FLOAT8 as total_km,
     COUNT(DISTINCT r.id) as total_rides
 FROM rides r
 WHERE r.status = 'completed'
@@ -115,7 +116,7 @@ ORDER BY total_km DESC, total_rides DESC;
 SELECT
     r.user_id,
     v.type as vehicle_type,
-    SUM(r.distance_km) as total_km,
+    SUM(r.distance_km)::FLOAT8 as total_km,
     COUNT(DISTINCT r.id) as total_rides
 FROM rides r
 JOIN vehicles v ON r.vehicle_id = v.id

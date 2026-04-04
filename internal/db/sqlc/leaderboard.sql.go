@@ -14,7 +14,7 @@ import (
 const computeAllTimeRankings = `-- name: ComputeAllTimeRankings :many
 SELECT
     r.user_id,
-    SUM(r.distance_km) as total_km,
+    SUM(r.distance_km)::FLOAT8 as total_km,
     COUNT(DISTINCT r.id) as total_rides
 FROM rides r
 WHERE r.status = 'completed'
@@ -24,7 +24,7 @@ ORDER BY total_km DESC, total_rides DESC
 
 type ComputeAllTimeRankingsRow struct {
 	UserID     pgtype.UUID `db:"user_id" json:"user_id"`
-	TotalKm    int64       `db:"total_km" json:"total_km"`
+	TotalKm    float64     `db:"total_km" json:"total_km"`
 	TotalRides int64       `db:"total_rides" json:"total_rides"`
 }
 
@@ -52,7 +52,7 @@ const computeAllTimeRankingsByVehicle = `-- name: ComputeAllTimeRankingsByVehicl
 SELECT
     r.user_id,
     v.type as vehicle_type,
-    SUM(r.distance_km) as total_km,
+    SUM(r.distance_km)::FLOAT8 as total_km,
     COUNT(DISTINCT r.id) as total_rides
 FROM rides r
 JOIN vehicles v ON r.vehicle_id = v.id
@@ -65,7 +65,7 @@ ORDER BY total_km DESC, total_rides DESC
 type ComputeAllTimeRankingsByVehicleRow struct {
 	UserID      pgtype.UUID `db:"user_id" json:"user_id"`
 	VehicleType VehicleType `db:"vehicle_type" json:"vehicle_type"`
-	TotalKm     int64       `db:"total_km" json:"total_km"`
+	TotalKm     float64     `db:"total_km" json:"total_km"`
 	TotalRides  int64       `db:"total_rides" json:"total_rides"`
 }
 
@@ -97,7 +97,7 @@ func (q *Queries) ComputeAllTimeRankingsByVehicle(ctx context.Context, type_ Veh
 const computeMonthlyRankings = `-- name: ComputeMonthlyRankings :many
 SELECT
     r.user_id,
-    SUM(r.distance_km) as total_km,
+    SUM(r.distance_km)::FLOAT8 as total_km,
     COUNT(DISTINCT r.id) as total_rides
 FROM rides r
 WHERE r.status = 'completed'
@@ -108,7 +108,7 @@ ORDER BY total_km DESC, total_rides DESC
 
 type ComputeMonthlyRankingsRow struct {
 	UserID     pgtype.UUID `db:"user_id" json:"user_id"`
-	TotalKm    int64       `db:"total_km" json:"total_km"`
+	TotalKm    float64     `db:"total_km" json:"total_km"`
 	TotalRides int64       `db:"total_rides" json:"total_rides"`
 }
 
@@ -136,7 +136,7 @@ const computeMonthlyRankingsByVehicle = `-- name: ComputeMonthlyRankingsByVehicl
 SELECT
     r.user_id,
     v.type as vehicle_type,
-    SUM(r.distance_km) as total_km,
+    SUM(r.distance_km)::FLOAT8 as total_km,
     COUNT(DISTINCT r.id) as total_rides
 FROM rides r
 JOIN vehicles v ON r.vehicle_id = v.id
@@ -155,7 +155,7 @@ type ComputeMonthlyRankingsByVehicleParams struct {
 type ComputeMonthlyRankingsByVehicleRow struct {
 	UserID      pgtype.UUID `db:"user_id" json:"user_id"`
 	VehicleType VehicleType `db:"vehicle_type" json:"vehicle_type"`
-	TotalKm     int64       `db:"total_km" json:"total_km"`
+	TotalKm     float64     `db:"total_km" json:"total_km"`
 	TotalRides  int64       `db:"total_rides" json:"total_rides"`
 }
 
@@ -188,7 +188,7 @@ const computeWeeklyRankings = `-- name: ComputeWeeklyRankings :many
 
 SELECT
     r.user_id,
-    SUM(r.distance_km) as total_km,
+    SUM(r.distance_km)::FLOAT8 as total_km,
     COUNT(DISTINCT r.id) as total_rides
 FROM rides r
 WHERE r.status = 'completed'
@@ -199,12 +199,13 @@ ORDER BY total_km DESC, total_rides DESC
 
 type ComputeWeeklyRankingsRow struct {
 	UserID     pgtype.UUID `db:"user_id" json:"user_id"`
-	TotalKm    int64       `db:"total_km" json:"total_km"`
+	TotalKm    float64     `db:"total_km" json:"total_km"`
 	TotalRides int64       `db:"total_rides" json:"total_rides"`
 }
 
 // Compute rankings for current period (used by cron job)
 // Optimized to scan rides table instead of users table for O(active_rides) performance
+// Explicit ::FLOAT8 cast on SUM() to prevent sqlc type inference bugs
 func (q *Queries) ComputeWeeklyRankings(ctx context.Context, startedAt pgtype.Timestamptz) ([]ComputeWeeklyRankingsRow, error) {
 	rows, err := q.db.Query(ctx, computeWeeklyRankings, startedAt)
 	if err != nil {
@@ -229,7 +230,7 @@ const computeWeeklyRankingsByVehicle = `-- name: ComputeWeeklyRankingsByVehicle 
 SELECT
     r.user_id,
     v.type as vehicle_type,
-    SUM(r.distance_km) as total_km,
+    SUM(r.distance_km)::FLOAT8 as total_km,
     COUNT(DISTINCT r.id) as total_rides
 FROM rides r
 JOIN vehicles v ON r.vehicle_id = v.id
@@ -248,7 +249,7 @@ type ComputeWeeklyRankingsByVehicleParams struct {
 type ComputeWeeklyRankingsByVehicleRow struct {
 	UserID      pgtype.UUID `db:"user_id" json:"user_id"`
 	VehicleType VehicleType `db:"vehicle_type" json:"vehicle_type"`
-	TotalKm     int64       `db:"total_km" json:"total_km"`
+	TotalKm     float64     `db:"total_km" json:"total_km"`
 	TotalRides  int64       `db:"total_rides" json:"total_rides"`
 }
 
