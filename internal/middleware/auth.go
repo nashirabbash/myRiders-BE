@@ -62,5 +62,10 @@ func GetUserID(c *gin.Context) (string, bool) {
 		return "", false
 	}
 
+	// Empty user_id indicates malformed token or missing subject claim
+	if id == "" || strings.TrimSpace(id) == "" {
+		return "", false
+	}
+
 	return id, true
 }
