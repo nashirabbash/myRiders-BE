@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -23,22 +24,22 @@ func (h *SocialHandler) Follow(c *gin.Context) {
 
 	targetUserID := c.Param("id")
 
-	// Prevent self-follow
-	if userID == targetUserID {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "CANNOT_FOLLOW_SELF"})
-		return
-	}
-
-	// Parse UUIDs
+	// Parse UUIDs for proper comparison
 	followerID, err := parseUUID(userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_USER_ID"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "TOKEN_INVALID"})
 		return
 	}
 
 	followingID, err := parseUUID(targetUserID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_ID"})
+		return
+	}
+
+	// Prevent self-follow using normalized UUID comparison
+	if followerID.Bytes == followingID.Bytes {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "CANNOT_FOLLOW_SELF"})
 		return
 	}
 
@@ -59,6 +60,7 @@ func (h *SocialHandler) Follow(c *gin.Context) {
 		FollowingID: followingID,
 	})
 	if err != nil {
+		log.Printf("Error following user: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
 		return
 	}
@@ -79,7 +81,7 @@ func (h *SocialHandler) Unfollow(c *gin.Context) {
 	// Parse UUIDs
 	followerID, err := parseUUID(userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_USER_ID"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "TOKEN_INVALID"})
 		return
 	}
 
@@ -95,6 +97,7 @@ func (h *SocialHandler) Unfollow(c *gin.Context) {
 		FollowingID: followingID,
 	})
 	if err != nil {
+		log.Printf("Error unfollowing user: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
 		return
 	}
@@ -115,7 +118,7 @@ func (h *SocialHandler) LikeRide(c *gin.Context) {
 	// Parse UUIDs
 	userUUID, err := parseUUID(userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_USER_ID"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "TOKEN_INVALID"})
 		return
 	}
 
@@ -136,33 +139,54 @@ func (h *SocialHandler) LikeRide(c *gin.Context) {
 		return
 	}
 
+	// Check if user already liked the ride
+	hasLiked, err := h.queries.HasUserLikedRide(c.Request.Context(), sqlc.HasUserLikedRideParams{
+		RideID: rideUUID,
+		UserID: userUUID,
+	})
+	if err != nil {
+		log.Printf("Error checking like status: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+		return
+	}
+
+	isNewLike := !hasLiked
+
 	// Insert like (ON CONFLICT DO NOTHING handles duplicates)
 	err = h.queries.LikeRide(c.Request.Context(), sqlc.LikeRideParams{
 		RideID: rideUUID,
 		UserID: userUUID,
 	})
 	if err != nil {
+		log.Printf("Error liking ride: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
 		return
 	}
 
-	// Send push notification to ride owner asynchronously
-	go func() {
-		rideOwner, err := h.queries.GetUserByID(c.Request.Context(), ride.UserID)
-		if err != nil {
-			return
-		}
+	// Send push notification to ride owner asynchronously only if this is a new like
+	if isNewLike {
+		go func() {
+			// Use background context instead of gin.Context which gets canceled
+			rideOwner, err := h.queries.GetUserByID(c.Request.Context(), ride.UserID)
+			if err != nil {
+				log.Printf("Error fetching ride owner for notification: %v", err)
+				return
+			}
 
-		liker, err := h.queries.GetUserByID(c.Request.Context(), userUUID)
-		if err != nil {
-			return
-		}
+			liker, err := h.queries.GetUserByID(c.Request.Context(), userUUID)
+			if err != nil {
+				log.Printf("Error fetching liker for notification: %v", err)
+				return
+			}
 
-		if rideOwner.PushToken.Valid {
-			notificationService := service.NewNotificationService()
-			_ = notificationService.SendLikeNotification(c.Request.Context(), rideOwner.PushToken.String, liker.DisplayName, ride.Title.String)
-		}
-	}()
+			if rideOwner.PushToken.Valid {
+				notificationService := service.NewNotificationService()
+				if err := notificationService.SendLikeNotification(c.Request.Context(), rideOwner.PushToken.String, liker.DisplayName, ride.Title.String); err != nil {
+					log.Printf("Error sending like notification: %v", err)
+				}
+			}
+		}()
+	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "LIKE_SUCCESS"})
 }
@@ -188,7 +212,7 @@ func (h *SocialHandler) CommentRide(c *gin.Context) {
 	// Parse UUIDs
 	userUUID, err := parseUUID(userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_USER_ID"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "TOKEN_INVALID"})
 		return
 	}
 
@@ -216,6 +240,7 @@ func (h *SocialHandler) CommentRide(c *gin.Context) {
 		Content: req.Content,
 	})
 	if err != nil {
+		log.Printf("Error creating comment: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
 		return
 	}
@@ -224,17 +249,21 @@ func (h *SocialHandler) CommentRide(c *gin.Context) {
 	go func() {
 		rideOwner, err := h.queries.GetUserByID(c.Request.Context(), ride.UserID)
 		if err != nil {
+			log.Printf("Error fetching ride owner for notification: %v", err)
 			return
 		}
 
 		commenter, err := h.queries.GetUserByID(c.Request.Context(), userUUID)
 		if err != nil {
+			log.Printf("Error fetching commenter for notification: %v", err)
 			return
 		}
 
 		if rideOwner.PushToken.Valid {
 			notificationService := service.NewNotificationService()
-			_ = notificationService.SendCommentNotification(c.Request.Context(), rideOwner.PushToken.String, commenter.DisplayName, ride.Title.String)
+			if err := notificationService.SendCommentNotification(c.Request.Context(), rideOwner.PushToken.String, commenter.DisplayName, ride.Title.String); err != nil {
+				log.Printf("Error sending comment notification: %v", err)
+			}
 		}
 	}()
 
@@ -285,17 +314,21 @@ func (h *SocialHandler) GetFeed(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 
+	// Validate pagination to prevent overflow
 	if page < 1 {
 		page = 1
 	}
-	if limit < 1 || limit > 100 {
+	if limit < 1 {
 		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
 	}
 
 	// Parse UUID
 	userUUID, err := parseUUID(userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_USER_ID"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "TOKEN_INVALID"})
 		return
 	}
 
@@ -308,6 +341,7 @@ func (h *SocialHandler) GetFeed(c *gin.Context) {
 		Offset: offset,
 	})
 	if err != nil {
+		log.Printf("Error fetching feed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
 		return
 	}
@@ -329,15 +363,21 @@ func (h *SocialHandler) GetFeed(c *gin.Context) {
 		// Convert like and comment counts to int64
 		likeCount := int64(0)
 		if feed.LikeCount != nil {
-			if v, ok := feed.LikeCount.(float64); ok {
+			switch v := feed.LikeCount.(type) {
+			case float64:
 				likeCount = int64(v)
+			case int64:
+				likeCount = v
 			}
 		}
 
 		commentCount := int64(0)
 		if feed.CommentCount != nil {
-			if v, ok := feed.CommentCount.(float64); ok {
+			switch v := feed.CommentCount.(type) {
+			case float64:
 				commentCount = int64(v)
+			case int64:
+				commentCount = v
 			}
 		}
 
