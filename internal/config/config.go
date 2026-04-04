@@ -55,8 +55,8 @@ func Load() *Config {
 	}
 
 	// Parse database pool sizes
-	c.DBMaxConns = int32(parseInt32Env("DB_MAX_CONNS", 25))
-	c.DBMinConns = int32(parseInt32Env("DB_MIN_CONNS", 5))
+	c.DBMaxConns = int32(parseIntEnv("DB_MAX_CONNS", 25))
+	c.DBMinConns = int32(parseIntEnv("DB_MIN_CONNS", 5))
 
 	// Parse JWT TTL durations
 	accessTTL, err := time.ParseDuration(getEnv("JWT_ACCESS_TTL", "1h"))
@@ -98,8 +98,8 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-// parseInt32Env parses an optional integer environment variable with a fallback
-func parseInt32Env(key string, fallback int) int {
+// parseIntEnv parses an optional integer environment variable with a fallback
+func parseIntEnv(key string, fallback int) int {
 	v := os.Getenv(key)
 	if v == "" {
 		return fallback

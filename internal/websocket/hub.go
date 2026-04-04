@@ -65,6 +65,9 @@ func (h *Hub) HandleWS(c *gin.Context) {
 
 	userID := parts[0]
 
+	// Consume the token (single-use) — prevent replay attacks
+	h.redis.Del(c, "ws_token:"+wsToken)
+
 	// Upgrade HTTP connection to WebSocket
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {

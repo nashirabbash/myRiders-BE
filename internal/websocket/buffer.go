@@ -122,12 +122,7 @@ func (b *GPSBuffer) flushLoop(rideID string, buf *rideBuffer) {
 	for {
 		select {
 		case <-ticker.C:
-			buf.mu.Lock()
-			hasPoints := len(buf.points) > 0
-			buf.mu.Unlock()
-			if hasPoints {
-				b.flushOnce(rideID)
-			}
+			b.flushBuf(buf) // call flushBuf directly; no map lookup needed
 		case <-buf.stopFlush:
 			return
 		}
@@ -135,7 +130,7 @@ func (b *GPSBuffer) flushLoop(rideID string, buf *rideBuffer) {
 }
 
 // flushBuf drains buf directly without a map lookup. Used by Disconnect after
-// the entry has already been removed from b.buffers.
+// the entry has already been removed from b.buffers, and by flushLoop.
 func (b *GPSBuffer) flushBuf(buf *rideBuffer) {
 	buf.mu.Lock()
 	if len(buf.points) == 0 {
@@ -153,27 +148,12 @@ func (b *GPSBuffer) flushBuf(buf *rideBuffer) {
 	_ = points
 }
 
-// flushOnce drains the current buffer and persists points to the database.
+// flushOnce resolves the buffer from the map and delegates to flushBuf.
 func (b *GPSBuffer) flushOnce(rideID string) {
 	b.mu.RLock()
 	buf, ok := b.buffers[rideID]
 	b.mu.RUnlock()
-	if !ok {
-		return
+	if ok {
+		b.flushBuf(buf)
 	}
-
-	buf.mu.Lock()
-	if len(buf.points) == 0 {
-		buf.mu.Unlock()
-		return
-	}
-	points := make([]GPSPoint, len(buf.points))
-	copy(points, buf.points)
-	buf.points = buf.points[:0]
-	buf.mu.Unlock()
-
-	// Phase 2: call queries.InsertGPSPointsBatch with points
-	ctx := context.Background()
-	_ = ctx
-	_ = points
 }

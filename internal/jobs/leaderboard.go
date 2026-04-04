@@ -42,10 +42,10 @@ func (j *LeaderboardJob) Start() {
 	log.Println("[Leaderboard] Cron job started (weekly on Monday 00:01 WIB)")
 }
 
-// Stop stops the cron job scheduler
-func (j *LeaderboardJob) Stop() {
-	j.cron.Stop()
-	log.Println("[Leaderboard] Cron job stopped")
+// Stop stops the cron job scheduler and returns a context that signals when
+// all in-flight jobs have completed
+func (j *LeaderboardJob) Stop() context.Context {
+	return j.cron.Stop()
 }
 
 // computeWeekly computes weekly leaderboard rankings

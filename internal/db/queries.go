@@ -11,11 +11,3 @@ type Queries interface {
 	// GetRideByID(ctx context.Context, id uuid.UUID) (Ride, error)
 	// ... etc
 }
-
-// NewQueries creates a new Queries instance.
-// In Phase 2, this will return a properly generated sqlc.Queries instance.
-func NewQueries() Queries {
-	// Phase 1: return nil placeholder
-	// Phase 2: return sqlc.New(db)
-	return nil
-}

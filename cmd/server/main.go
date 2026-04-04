@@ -132,8 +132,9 @@ func main() {
 
 	log.Println("[Shutdown] Graceful shutdown initiated...")
 
-	// Stop cron scheduler first
-	leaderboardJob.Stop()
+	// Stop cron scheduler first and wait for any in-flight job to finish
+	cronCtx := leaderboardJob.Stop()
+	<-cronCtx.Done()
 	log.Println("[Shutdown] Leaderboard job stopped ✓")
 
 	// Graceful shutdown with timeout
