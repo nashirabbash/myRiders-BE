@@ -6,17 +6,17 @@ import (
 	"time"
 
 	"github.com/robfig/cron/v3"
-	"github.com/nashirabbash/trackride/internal/db/sqlc"
+	"github.com/nashirabbash/trackride/internal/db"
 )
 
 // LeaderboardJob handles periodic leaderboard ranking computation
 type LeaderboardJob struct {
-	queries *sqlc.Queries
+	queries db.Queries
 	cron    *cron.Cron
 }
 
 // NewLeaderboardJob creates a new leaderboard job
-func NewLeaderboardJob(queries *sqlc.Queries) *LeaderboardJob {
+func NewLeaderboardJob(queries db.Queries) *LeaderboardJob {
 	return &LeaderboardJob{
 		queries: queries,
 		cron:    cron.New(cron.WithLocation(mustLoadLocation("Asia/Jakarta"))),

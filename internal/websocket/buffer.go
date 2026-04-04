@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nashirabbash/trackride/internal/db/sqlc"
+	"github.com/nashirabbash/trackride/internal/db"
 )
 
 const (
@@ -32,11 +32,11 @@ type rideBuffer struct {
 type GPSBuffer struct {
 	buffers map[string]*rideBuffer
 	mu      sync.RWMutex
-	queries *sqlc.Queries
+	queries db.Queries // Can be nil in Phase 1, will be set in Phase 2
 }
 
 // NewGPSBuffer creates a new GPS buffer
-func NewGPSBuffer(queries *sqlc.Queries) *GPSBuffer {
+func NewGPSBuffer(queries db.Queries) *GPSBuffer {
 	return &GPSBuffer{
 		buffers: make(map[string]*rideBuffer),
 		queries: queries,

@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/nashirabbash/trackride/internal/config"
-	"github.com/nashirabbash/trackride/internal/db/sqlc"
+	dbpkg "github.com/nashirabbash/trackride/internal/db"
 	"github.com/nashirabbash/trackride/internal/handler"
 	"github.com/nashirabbash/trackride/internal/jobs"
 	"github.com/nashirabbash/trackride/internal/router"
@@ -69,26 +69,32 @@ func main() {
 	cancel()
 	log.Println("[Redis] Redis connected ✓")
 
-	// Initialize query layer
-	queries := sqlc.New(pgPool)
+	// Initialize database store
+	// In Phase 2, this will be initialized with actual sqlc queries:
+	// queries := sqlc.New(pgPool)
+	store := dbpkg.NewStore(pgPool)
+	_ = store
 
 	// Initialize WebSocket components
-	gpsBuffer := websocket.NewGPSBuffer(queries)
+	// In Phase 2, pass store to GPS buffer for actual GPS point persistence
+	gpsBuffer := websocket.NewGPSBuffer(nil)
 	wsHub := websocket.NewHub(gpsBuffer, redisClient)
 
 	// Initialize handlers
+	// In Phase 2, pass store to handlers for actual database operations
 	handlers := &handler.Handlers{
-		Auth:        handler.NewAuthHandler(queries, cfg),
-		Users:       handler.NewUsersHandler(queries, cfg),
-		Vehicles:    handler.NewVehiclesHandler(queries, cfg),
-		Rides:       handler.NewRidesHandler(queries, cfg, redisClient),
-		Social:      handler.NewSocialHandler(queries, cfg),
-		Leaderboard: handler.NewLeaderboardHandler(queries, cfg),
+		Auth:        handler.NewAuthHandler(nil, cfg),
+		Users:       handler.NewUsersHandler(nil, cfg),
+		Vehicles:    handler.NewVehiclesHandler(nil, cfg),
+		Rides:       handler.NewRidesHandler(nil, cfg, redisClient),
+		Social:      handler.NewSocialHandler(nil, cfg),
+		Leaderboard: handler.NewLeaderboardHandler(nil, cfg),
 		Health:      &handler.HealthHandler{},
 	}
 
 	// Initialize leaderboard cron job
-	leaderboardJob := jobs.NewLeaderboardJob(queries)
+	// In Phase 2, pass store to leaderboard job for actual ranking computation
+	leaderboardJob := jobs.NewLeaderboardJob(nil)
 	leaderboardJob.Start()
 
 	// Setup router
@@ -117,6 +123,10 @@ func main() {
 	<-sigChan
 
 	log.Println("[Shutdown] Graceful shutdown initiated...")
+
+	// Stop cron scheduler first
+	leaderboardJob.Stop()
+	log.Println("[Shutdown] Leaderboard job stopped ✓")
 
 	// Graceful shutdown with timeout
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

@@ -4,10 +4,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"github.com/nashirabbash/trackride/internal/config"
-	"github.com/nashirabbash/trackride/internal/db/sqlc"
+	"github.com/nashirabbash/trackride/internal/db"
 )
 
-// Handlers holds all HTTP handlers for the application
+// Handlers holds all HTTP handlers for the application.
+//
+// In Phase 2 implementations, always use middleware.GetUserID() with explicit checking:
+//
+//	userID, ok := middleware.GetUserID(c)
+//	if !ok {
+//		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
+//		return
+//	}
 type Handlers struct {
 	Auth        *AuthHandler
 	Users       *UsersHandler
@@ -20,12 +28,12 @@ type Handlers struct {
 
 // AuthHandler manages authentication endpoints
 type AuthHandler struct {
-	queries *sqlc.Queries
+	queries db.Queries
 	cfg     *config.Config
 }
 
 // NewAuthHandler creates a new AuthHandler
-func NewAuthHandler(queries *sqlc.Queries, cfg *config.Config) *AuthHandler {
+func NewAuthHandler(queries db.Queries, cfg *config.Config) *AuthHandler {
 	return &AuthHandler{queries: queries, cfg: cfg}
 }
 
@@ -43,12 +51,12 @@ func (h *AuthHandler) Logout(c *gin.Context) {}
 
 // UsersHandler manages user-related endpoints
 type UsersHandler struct {
-	queries *sqlc.Queries
+	queries db.Queries
 	cfg     *config.Config
 }
 
 // NewUsersHandler creates a new UsersHandler
-func NewUsersHandler(queries *sqlc.Queries, cfg *config.Config) *UsersHandler {
+func NewUsersHandler(queries db.Queries, cfg *config.Config) *UsersHandler {
 	return &UsersHandler{queries: queries, cfg: cfg}
 }
 
@@ -63,12 +71,12 @@ func (h *UsersHandler) GetProfile(c *gin.Context) {}
 
 // VehiclesHandler manages vehicle-related endpoints
 type VehiclesHandler struct {
-	queries *sqlc.Queries
+	queries db.Queries
 	cfg     *config.Config
 }
 
 // NewVehiclesHandler creates a new VehiclesHandler
-func NewVehiclesHandler(queries *sqlc.Queries, cfg *config.Config) *VehiclesHandler {
+func NewVehiclesHandler(queries db.Queries, cfg *config.Config) *VehiclesHandler {
 	return &VehiclesHandler{queries: queries, cfg: cfg}
 }
 
@@ -86,13 +94,13 @@ func (h *VehiclesHandler) Delete(c *gin.Context) {}
 
 // RidesHandler manages ride-related endpoints
 type RidesHandler struct {
-	queries *sqlc.Queries
+	queries db.Queries
 	cfg     *config.Config
 	redis   *redis.Client
 }
 
 // NewRidesHandler creates a new RidesHandler
-func NewRidesHandler(queries *sqlc.Queries, cfg *config.Config, redis *redis.Client) *RidesHandler {
+func NewRidesHandler(queries db.Queries, cfg *config.Config, redis *redis.Client) *RidesHandler {
 	return &RidesHandler{queries: queries, cfg: cfg, redis: redis}
 }
 
@@ -110,12 +118,12 @@ func (h *RidesHandler) GetByID(c *gin.Context) {}
 
 // SocialHandler manages social features (follows, likes, comments)
 type SocialHandler struct {
-	queries *sqlc.Queries
+	queries db.Queries
 	cfg     *config.Config
 }
 
 // NewSocialHandler creates a new SocialHandler
-func NewSocialHandler(queries *sqlc.Queries, cfg *config.Config) *SocialHandler {
+func NewSocialHandler(queries db.Queries, cfg *config.Config) *SocialHandler {
 	return &SocialHandler{queries: queries, cfg: cfg}
 }
 
@@ -136,12 +144,12 @@ func (h *SocialHandler) CommentRide(c *gin.Context) {}
 
 // LeaderboardHandler manages leaderboard endpoints
 type LeaderboardHandler struct {
-	queries *sqlc.Queries
+	queries db.Queries
 	cfg     *config.Config
 }
 
 // NewLeaderboardHandler creates a new LeaderboardHandler
-func NewLeaderboardHandler(queries *sqlc.Queries, cfg *config.Config) *LeaderboardHandler {
+func NewLeaderboardHandler(queries db.Queries, cfg *config.Config) *LeaderboardHandler {
 	return &LeaderboardHandler{queries: queries, cfg: cfg}
 }
 

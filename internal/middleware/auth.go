@@ -43,18 +43,19 @@ func Auth(secret string) gin.HandlerFunc {
 	}
 }
 
-// GetUserID safely extracts the authenticated user ID from the request context
-// Returns empty string if user_id is not found or has invalid type
-func GetUserID(c *gin.Context) string {
+// GetUserID safely extracts the authenticated user ID from the request context.
+// Returns (userID, true) if valid, (empty, false) if missing or has invalid type.
+// Callers MUST check the boolean flag and return UNAUTHORIZED if false.
+func GetUserID(c *gin.Context) (string, bool) {
 	userID, exists := c.Get("user_id")
 	if !exists {
-		return ""
+		return "", false
 	}
 
 	id, ok := userID.(string)
-	if !ok {
-		return ""
+	if !ok || id == "" {
+		return "", false
 	}
 
-	return id
+	return id, true
 }

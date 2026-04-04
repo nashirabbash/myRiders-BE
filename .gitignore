@@ -1,3 +1,22 @@
 .agents/*
 .claude/*
 .github/*
+
+# Build artifacts
+/server
+/bin/
+/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Go development
+*.test
+*.out
+.env
+.env.local
