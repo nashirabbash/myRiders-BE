@@ -1,0 +1,24 @@
+extends:
+  - spectral:oas
+
+rules:
+  # Require operationId on every operation
+  operation-operationId: error
+
+  # Require at least one tag per operation
+  operation-tags: error
+
+  # Require description on all parameters
+  operation-parameters: warn
+
+  # Ensure all $ref targets exist
+  oas3-schema: error
+
+  # No unused components
+  oas3-unused-component: warn
+
+  # Require info.contact
+  info-contact: warn
+
+  # Require description on every operation
+  operation-description: warn

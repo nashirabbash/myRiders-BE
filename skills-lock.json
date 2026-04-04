@@ -1,0 +1,180 @@
+{
+  "version": 1,
+  "skills": {
+    "api-design": {
+      "source": "supercent-io/skills-template",
+      "sourceType": "github",
+      "computedHash": "dafbff951f8f1c29336fe9f6cd1e1f2ad9f203b36fcdc8b5a0c1c9cea500e6d5"
+    },
+    "api-design-principles": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "3316239df2bdcb41e992857b8142e0239e6964564dd5d7224e470c2ab350a03c"
+    },
+    "api-documentation": {
+      "source": "supercent-io/skills-template",
+      "sourceType": "github",
+      "computedHash": "0e161c4a4f3a3f5bd6949a1ebc833fd61d29f35a4fed307567a8114d003a95fc"
+    },
+    "api-security-best-practices": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "computedHash": "ce16d10df486a28a3ba894d646de3243fc2bf9990f563fc7a9b074fd720e24d5"
+    },
+    "architecture-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "b92f11750a7cf9a6e5fa005ff72b0ae4f6aa45adc684193537d82ecb6e4eefd8"
+    },
+    "better-auth-best-practices": {
+      "source": "better-auth/skills",
+      "sourceType": "github",
+      "computedHash": "a4c830509e85557b59339d8d93a4e243e9e59c686e7678854d39230e12c2a6dc"
+    },
+    "breakdown-feature-implementation": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "7fe64193429f501d63828fbbde0e20f4ee49e5254a3226ece7ff004bf8e7f348"
+    },
+    "breakdown-feature-prd": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "e0a851ff26f6ddc213c390556ede39ac8fa43b76076b4a187c8c759128fe9fce"
+    },
+    "breakdown-plan": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "24abce941a7c952ad3da3b1acf4e6fdf566ba24ffeaa2e37d74d68fb401ef7c3"
+    },
+    "breakdown-test": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "aec76bd6b3246889ada4fecba3f78a6c5d0717d66a70af5791279556a3891759"
+    },
+    "clean-code": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "computedHash": "af77b8995f255140f1643de753007baf87b734e8b87175489524aadc3559c42a"
+    },
+    "database-schema-design": {
+      "source": "supercent-io/skills-template",
+      "sourceType": "github",
+      "computedHash": "c3193721f3420d8e669ad42f33de538acc1ddaeacfceb58309f80eafb0b00752"
+    },
+    "email-and-password-best-practices": {
+      "source": "better-auth/skills",
+      "sourceType": "github",
+      "computedHash": "747d7f73bd9e2ec5317b8ef88dc70f97df716d00e3d02de4051feebaa48b062d"
+    },
+    "enhance-prompt": {
+      "source": "google-labs-code/stitch-skills",
+      "sourceType": "github",
+      "computedHash": "71cc23e9ec5fc6361e12453495fa8c683f6cf26f3efaf9b230b0f43e0a32cc96"
+    },
+    "golang-backend-development": {
+      "source": "manutej/luxor-claude-marketplace",
+      "sourceType": "github",
+      "computedHash": "807ea7b237d8caebfbe34be301b3898963567ae64d120888a82d0f8fe5d0fd23"
+    },
+    "golang-patterns": {
+      "source": "affaan-m/everything-claude-code",
+      "sourceType": "github",
+      "computedHash": "67c25e95cec3f3166c2efefd5f4502863a1246c6f742b8cbcd2e2864d2a8182a"
+    },
+    "golang-pro": {
+      "source": "jeffallan/claude-skills",
+      "sourceType": "github",
+      "computedHash": "c90a0798a12ea2d9191508439ec3191dd96713310615260ebe82ec5a09a4a434"
+    },
+    "golang-testing": {
+      "source": "affaan-m/everything-claude-code",
+      "sourceType": "github",
+      "computedHash": "db6e910031d9c289f91697cf2397b8a3f717c6fdeae7a115e811a32544d99e11"
+    },
+    "openapi-spec-generation": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "8f7638e66dfc477e490ebd6e3199ee2bd2bbbce568e75124a2d578f75187906b"
+    },
+    "openapi-to-application-code": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "d98883f9f1f65b658c09af4a7d51eb31847e3302d4ebcc32b32cc8e4dcbe59c2"
+    },
+    "postgresql-code-review": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "1167ec9449aa866e16bc7449e05ab4d391cdce95a0b0c5e1155b793160471eb5"
+    },
+    "postgresql-optimization": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "8022448de70ba9a485e3b5bce34c5bbc644f93eb39b68431c9f7dabcf03aeb09"
+    },
+    "postgresql-table-design": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "0728424e6f56972333bd60e4f45da0322ac6db273744d863aa2b94f1e95d61ec"
+    },
+    "sql-code-review": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "ae157a0eeaa4c4712e850e85d71d25f2a53168f94011f3a08b888424f41220ee"
+    },
+    "sql-optimization": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "47c930907f25d67454ac8c2d155785eae3dce72242960d0c0e9ebf2ced9cd231"
+    },
+    "sql-queries": {
+      "source": "anthropics/knowledge-work-plugins",
+      "sourceType": "github",
+      "computedHash": "d0c75aada6c7920f568cbe313a0228802d171635a5f39be328d29f49c6393097"
+    },
+    "systematic-debugging": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "72e9ab72627e4fd8ed26a582e82309a98ecdc4f6e1c99418430ac05682c9e91d"
+    },
+    "task-estimation": {
+      "source": "supercent-io/skills-template",
+      "sourceType": "github",
+      "computedHash": "5166ae0e4efc5fb8ec47e9484762895be86eec68ad177acd75555fddc0b81b45"
+    },
+    "task-planning": {
+      "source": "supercent-io/skills-template",
+      "sourceType": "github",
+      "computedHash": "1459a31d3c87df7fd601a99479363a7f66da1cd2089f08405a7d4854d0da3a93"
+    },
+    "test-driven-development": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "126f1ebf6ccd414f42544f6e83d8cc5adb089e1108eaffb7c400701e37eecd9f"
+    },
+    "two-factor-authentication-best-practices": {
+      "source": "better-auth/skills",
+      "sourceType": "github",
+      "computedHash": "7e297aaf887e11fdc03e52bdbf44974e161e8f7c393170ced7dc66cace4f6d46"
+    },
+    "typespec-api-operations": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "55f60154f528041437b53a1b4bb227b584f2b6accc1b85b625b78e07542cb9cd"
+    },
+    "ultrathink": {
+      "source": "intellectronica/agent-skills",
+      "sourceType": "github",
+      "computedHash": "723c2241c0fdd1f4e555e207e1c682e45b6e0df5f29ed6fc357b27bceb5f4799"
+    },
+    "write-api-reference": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "4d0a62b91470170ba15620ea4355e4ea6e712d4937c6046f2050359a3bb5ec8c"
+    },
+    "writing-plans": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "computedHash": "70fe626d5970349239e939f311893389563a6338cda40eb0500606dd48aa3afa"
+    }
+  }
+}
