@@ -154,5 +154,10 @@ func (h *LeaderboardHandler) GetFriends(c *gin.Context) {}
 // HealthHandler manages health check endpoints
 type HealthHandler struct{}
 
-// Check placeholder
-func (h *HealthHandler) Check(c *gin.Context) {}
+// Check returns a simple health status response
+func (h *HealthHandler) Check(c *gin.Context) {
+	c.JSON(200, gin.H{
+		"status": "healthy",
+		"app":    "trackride-backend",
+	})
+}

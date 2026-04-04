@@ -40,24 +40,33 @@ func main() {
 		log.Fatalf("[DB] Failed to create connection pool: %v", err)
 	}
 
-	// Ping PostgreSQL
-	if err := pgPool.Ping(ctx); err != nil {
+	// Ping PostgreSQL with timeout
+	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	if err := pgPool.Ping(pingCtx); err != nil {
+		cancel()
 		log.Fatalf("[DB] PostgreSQL ping failed: %v", err)
 	}
+	cancel()
 	log.Println("[DB] PostgreSQL connected ✓")
 
-	// Initialize Redis client
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:         cfg.RedisURL,
-		MaxRetries:   3,
-		PoolSize:     10,
-		MinIdleConns: 2,
-	})
+	// Initialize Redis client from URL
+	redisOpts, err := redis.ParseURL(cfg.RedisURL)
+	if err != nil {
+		log.Fatalf("[Redis] Failed to parse Redis URL: %v", err)
+	}
+	redisOpts.MaxRetries = 3
+	redisOpts.PoolSize = 10
+	redisOpts.MinIdleConns = 2
 
-	// Ping Redis
-	if err := redisClient.Ping(ctx).Err(); err != nil {
+	redisClient := redis.NewClient(redisOpts)
+
+	// Ping Redis with timeout
+	pingCtx, cancel = context.WithTimeout(ctx, 5*time.Second)
+	if err := redisClient.Ping(pingCtx).Err(); err != nil {
+		cancel()
 		log.Fatalf("[Redis] Redis ping failed: %v", err)
 	}
+	cancel()
 	log.Println("[Redis] Redis connected ✓")
 
 	// Initialize query layer
@@ -75,6 +84,7 @@ func main() {
 		Rides:       handler.NewRidesHandler(queries, cfg, redisClient),
 		Social:      handler.NewSocialHandler(queries, cfg),
 		Leaderboard: handler.NewLeaderboardHandler(queries, cfg),
+		Health:      &handler.HealthHandler{},
 	}
 
 	// Initialize leaderboard cron job

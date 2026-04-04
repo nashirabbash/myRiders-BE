@@ -1,11 +1,22 @@
 package jwt
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
+
+// TokenError represents a JWT parsing/validation error
+type TokenError struct {
+	Code    string // "expired", "invalid", "malformed"
+	Message string
+}
+
+func (e *TokenError) Error() string {
+	return e.Message
+}
 
 // Claims represents custom JWT claims for TrackRide
 type Claims struct {
@@ -44,7 +55,7 @@ func GenerateRefreshToken(userID string, secret string, ttl time.Duration) (stri
 	return token.SignedString([]byte(secret))
 }
 
-// ParseToken parses and validates a JWT token
+// ParseToken parses and validates a JWT token, returning specific error types
 func ParseToken(tokenString string, secret string) (*Claims, error) {
 	claims := &Claims{}
 
@@ -57,11 +68,17 @@ func ParseToken(tokenString string, secret string) (*Claims, error) {
 	})
 
 	if err != nil {
-		return nil, err
+		// Check if token is expired by looking for the specific error
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, &TokenError{Code: "expired", Message: "token has expired"}
+		}
+
+		// All other errors are treated as invalid
+		return nil, &TokenError{Code: "invalid", Message: "token is invalid or malformed"}
 	}
 
 	if !token.Valid {
-		return nil, fmt.Errorf("invalid token")
+		return nil, &TokenError{Code: "invalid", Message: "token is invalid"}
 	}
 
 	return claims, nil

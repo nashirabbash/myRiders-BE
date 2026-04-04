@@ -27,7 +27,14 @@ func Auth(secret string) gin.HandlerFunc {
 		token := parts[1]
 		claims, err := jwtpkg.ParseToken(token, secret)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "TOKEN_EXPIRED"})
+			errorCode := "TOKEN_INVALID"
+
+			// Distinguish between expired and other invalid token errors
+			if tokenErr, ok := err.(*jwtpkg.TokenError); ok && tokenErr.Code == "expired" {
+				errorCode = "TOKEN_EXPIRED"
+			}
+
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": errorCode})
 			return
 		}
 
@@ -36,8 +43,18 @@ func Auth(secret string) gin.HandlerFunc {
 	}
 }
 
-// GetUserID extracts the authenticated user ID from the request context
+// GetUserID safely extracts the authenticated user ID from the request context
+// Returns empty string if user_id is not found or has invalid type
 func GetUserID(c *gin.Context) string {
-	userID, _ := c.Get("user_id")
-	return userID.(string)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		return ""
+	}
+
+	id, ok := userID.(string)
+	if !ok {
+		return ""
+	}
+
+	return id
 }
