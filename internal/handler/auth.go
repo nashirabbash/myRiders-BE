@@ -155,7 +155,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	}
 
 	// Refresh access token
-	accessToken, err := h.authService.RefreshAccessToken(req.RefreshToken)
+	accessToken, expiresIn, err := h.authService.RefreshAccessToken(req.RefreshToken)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "TOKEN_INVALID"})
 		return
@@ -163,7 +163,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 
 	c.JSON(http.StatusOK, RefreshResponse{
 		AccessToken: accessToken,
-		ExpiresIn:   3600, // 1 hour
+		ExpiresIn:   expiresIn,
 	})
 }
 

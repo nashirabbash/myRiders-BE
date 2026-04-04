@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 	"github.com/nashirabbash/trackride/internal/config"
 	"github.com/nashirabbash/trackride/internal/db/sqlc"
@@ -68,11 +70,17 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (*sqlc.
 	if err == nil {
 		return nil, nil, fmt.Errorf("EMAIL_TAKEN")
 	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil, fmt.Errorf("INTERNAL_ERROR")
+	}
 
 	// Check if username already exists
 	_, err = s.queries.GetUserByUsername(ctx, req.Username)
 	if err == nil {
 		return nil, nil, fmt.Errorf("USERNAME_TAKEN")
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil, fmt.Errorf("INTERNAL_ERROR")
 	}
 
 	// Hash password
@@ -156,16 +164,17 @@ func (s *AuthService) GenerateTokens(userID string) (*AuthTokens, error) {
 }
 
 // RefreshAccessToken validates a refresh token and generates a new access token
-func (s *AuthService) RefreshAccessToken(refreshTokenStr string) (string, error) {
+// Returns the access token and its expiry in seconds
+func (s *AuthService) RefreshAccessToken(refreshTokenStr string) (string, int64, error) {
 	// Parse refresh token
 	claims, err := jwtpkg.ParseToken(refreshTokenStr, s.cfg.JWTRefreshSecret)
 	if err != nil {
-		return "", fmt.Errorf("TOKEN_INVALID")
+		return "", 0, fmt.Errorf("TOKEN_INVALID")
 	}
 
 	// Verify token type
 	if claims.Type != "refresh" {
-		return "", fmt.Errorf("TOKEN_INVALID")
+		return "", 0, fmt.Errorf("TOKEN_INVALID")
 	}
 
 	// Use configured access token TTL
@@ -175,10 +184,10 @@ func (s *AuthService) RefreshAccessToken(refreshTokenStr string) (string, error)
 	}
 
 	// Generate new access token
-	accessToken, err := jwtpkg.GenerateAccessToken(claims.UserID, s.cfg.JWTAccessSecret, accessTTL)
+	accessToken, err := jwtpkg.GenerateAccessToken(claims.UserID(), s.cfg.JWTAccessSecret, accessTTL)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
-	return accessToken, nil
+	return accessToken, int64(accessTTL.Seconds()), nil
 }

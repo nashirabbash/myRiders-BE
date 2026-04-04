@@ -48,10 +48,10 @@ func (h *UsersHandler) GetMe(c *gin.Context) {
 		return
 	}
 
-	// Parse UUID
+	// Parse UUID (userID from auth token should always be valid)
 	id, err := parseUUID(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "TOKEN_INVALID"})
 		return
 	}
 
@@ -92,17 +92,34 @@ func (h *UsersHandler) UpdateMe(c *gin.Context) {
 		return
 	}
 
-	// Parse UUID
+	// Parse UUID (userID from auth token should always be valid)
 	id, err := parseUUID(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "TOKEN_INVALID"})
 		return
 	}
 
-	// Update profile
+	// Fetch current user to get existing values for fields not being updated
+	currentUser, err := h.queries.GetUserByID(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "USER_NOT_FOUND"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+		}
+		return
+	}
+
+	// Update profile — only set fields that were explicitly provided in request
+	// Use current values for fields not provided
+	displayName := derefString(req.DisplayName)
+	if req.DisplayName == nil {
+		displayName = currentUser.DisplayName
+	}
+
 	user, err := h.queries.UpdateUserProfile(c.Request.Context(), sqlc.UpdateUserProfileParams{
 		ID:          id,
-		DisplayName: derefString(req.DisplayName),
+		DisplayName: displayName,
 		AvatarUrl:   optionalStringPgtype2(req.AvatarURL),
 		PushToken:   pgtype.Text{Valid: false},
 	})

@@ -44,7 +44,7 @@ func Auth(accessSecret string) gin.HandlerFunc {
 		}
 
 		// Store user_id in context for downstream handlers
-		c.Set("user_id", claims.UserID)
+		c.Set("user_id", claims.UserID())
 		c.Next()
 	}
 }

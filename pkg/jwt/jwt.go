@@ -9,9 +9,13 @@ import (
 
 // Claims represents JWT claims with standard and custom fields
 type Claims struct {
-	UserID string `json:"sub"`
-	Type   string `json:"type"` // "access" or "refresh"
+	Type string `json:"type"` // "access" or "refresh"
 	jwtlib.RegisteredClaims
+}
+
+// UserID returns the user ID from the standard Subject claim
+func (c *Claims) UserID() string {
+	return c.Subject
 }
 
 // TokenError represents JWT validation errors
@@ -27,12 +31,11 @@ func (e TokenError) Error() string {
 // GenerateAccessToken creates a JWT access token
 func GenerateAccessToken(userID string, secret string, ttl time.Duration) (string, error) {
 	claims := Claims{
-		UserID: userID,
-		Type:   "access",
+		Type: "access",
 		RegisteredClaims: jwtlib.RegisteredClaims{
+			Subject:   userID,
 			ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(ttl)),
 			IssuedAt:  jwtlib.NewNumericDate(time.Now()),
-			NotBefore: jwtlib.NewNumericDate(time.Now()),
 		},
 	}
 
@@ -48,12 +51,11 @@ func GenerateAccessToken(userID string, secret string, ttl time.Duration) (strin
 // GenerateRefreshToken creates a JWT refresh token
 func GenerateRefreshToken(userID string, secret string, ttl time.Duration) (string, error) {
 	claims := Claims{
-		UserID: userID,
-		Type:   "refresh",
+		Type: "refresh",
 		RegisteredClaims: jwtlib.RegisteredClaims{
+			Subject:   userID,
 			ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(ttl)),
 			IssuedAt:  jwtlib.NewNumericDate(time.Now()),
-			NotBefore: jwtlib.NewNumericDate(time.Now()),
 		},
 	}
 
