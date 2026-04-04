@@ -102,6 +102,20 @@ func (q *Queries) GetVehicleByID(ctx context.Context, id pgtype.UUID) (Vehicle, 
 	return i, err
 }
 
+const hasActiveRide = `-- name: HasActiveRide :one
+SELECT EXISTS(
+    SELECT 1 FROM rides
+    WHERE vehicle_id = $1 AND status = 'active'
+) as has_active_ride
+`
+
+func (q *Queries) HasActiveRide(ctx context.Context, vehicleID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, hasActiveRide, vehicleID)
+	var has_active_ride bool
+	err := row.Scan(&has_active_ride)
+	return has_active_ride, err
+}
+
 const listActiveVehiclesByUser = `-- name: ListActiveVehiclesByUser :many
 SELECT id, user_id, type, name, brand, color, is_active, created_at, updated_at
 FROM vehicles

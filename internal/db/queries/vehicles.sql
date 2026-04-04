@@ -38,3 +38,9 @@ WHERE id = $1 AND user_id = $2;
 -- name: DeleteVehicle :exec
 DELETE FROM vehicles
 WHERE id = $1 AND user_id = $2;
+
+-- name: HasActiveRide :one
+SELECT EXISTS(
+    SELECT 1 FROM rides
+    WHERE vehicle_id = $1 AND status = 'active'
+) as has_active_ride;
