@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -164,16 +165,18 @@ func (h *SocialHandler) LikeRide(c *gin.Context) {
 	}
 
 	// Send push notification to ride owner asynchronously only if this is a new like
+	// Use context.Background() instead of c.Request.Context() which gets canceled after handler returns
 	if isNewLike {
 		go func() {
-			// Use background context instead of gin.Context which gets canceled
-			rideOwner, err := h.queries.GetUserByID(c.Request.Context(), ride.UserID)
+			bgCtx := context.Background()
+
+			rideOwner, err := h.queries.GetUserByID(bgCtx, ride.UserID)
 			if err != nil {
 				log.Printf("Error fetching ride owner for notification: %v", err)
 				return
 			}
 
-			liker, err := h.queries.GetUserByID(c.Request.Context(), userUUID)
+			liker, err := h.queries.GetUserByID(bgCtx, userUUID)
 			if err != nil {
 				log.Printf("Error fetching liker for notification: %v", err)
 				return
@@ -181,7 +184,7 @@ func (h *SocialHandler) LikeRide(c *gin.Context) {
 
 			if rideOwner.PushToken.Valid {
 				notificationService := service.NewNotificationService()
-				if err := notificationService.SendLikeNotification(c.Request.Context(), rideOwner.PushToken.String, liker.DisplayName, ride.Title.String); err != nil {
+				if err := notificationService.SendLikeNotification(bgCtx, rideOwner.PushToken.String, liker.DisplayName, ride.Title.String); err != nil {
 					log.Printf("Error sending like notification: %v", err)
 				}
 			}
@@ -246,14 +249,17 @@ func (h *SocialHandler) CommentRide(c *gin.Context) {
 	}
 
 	// Send push notification to ride owner asynchronously
+	// Use context.Background() instead of c.Request.Context() which gets canceled after handler returns
 	go func() {
-		rideOwner, err := h.queries.GetUserByID(c.Request.Context(), ride.UserID)
+		bgCtx := context.Background()
+
+		rideOwner, err := h.queries.GetUserByID(bgCtx, ride.UserID)
 		if err != nil {
 			log.Printf("Error fetching ride owner for notification: %v", err)
 			return
 		}
 
-		commenter, err := h.queries.GetUserByID(c.Request.Context(), userUUID)
+		commenter, err := h.queries.GetUserByID(bgCtx, userUUID)
 		if err != nil {
 			log.Printf("Error fetching commenter for notification: %v", err)
 			return
@@ -261,7 +267,7 @@ func (h *SocialHandler) CommentRide(c *gin.Context) {
 
 		if rideOwner.PushToken.Valid {
 			notificationService := service.NewNotificationService()
-			if err := notificationService.SendCommentNotification(c.Request.Context(), rideOwner.PushToken.String, commenter.DisplayName, ride.Title.String); err != nil {
+			if err := notificationService.SendCommentNotification(bgCtx, rideOwner.PushToken.String, commenter.DisplayName, ride.Title.String); err != nil {
 				log.Printf("Error sending comment notification: %v", err)
 			}
 		}
