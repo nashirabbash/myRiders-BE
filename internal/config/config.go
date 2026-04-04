@@ -16,6 +16,8 @@ type Config struct {
 
 	// Database
 	DatabaseURL string
+	DBMaxConns  int32
+	DBMinConns  int32
 
 	// Redis
 	RedisURL string
@@ -29,6 +31,9 @@ type Config struct {
 	// WebSocket
 	WsTokenTTL int
 
+	// Leaderboard
+	LeaderboardTimezone string
+
 	// Google Maps
 	GoogleMapsKey string
 }
@@ -39,14 +44,19 @@ func Load() *Config {
 	_ = godotenv.Load()
 
 	c := &Config{
-		AppEnv:           getEnv("APP_ENV", "development"),
-		Port:             getEnv("PORT", "8080"),
-		DatabaseURL:      mustEnv("DATABASE_URL"),
-		RedisURL:         mustEnv("REDIS_URL"),
-		JWTAccessSecret:  mustEnv("JWT_ACCESS_SECRET"),
-		JWTRefreshSecret: mustEnv("JWT_REFRESH_SECRET"),
-		GoogleMapsKey:    os.Getenv("GOOGLE_MAPS_API_KEY"),
+		AppEnv:              getEnv("APP_ENV", "development"),
+		Port:                getEnv("PORT", "8080"),
+		DatabaseURL:         mustEnv("DATABASE_URL"),
+		RedisURL:            mustEnv("REDIS_URL"),
+		JWTAccessSecret:     mustEnv("JWT_ACCESS_SECRET"),
+		JWTRefreshSecret:    mustEnv("JWT_REFRESH_SECRET"),
+		GoogleMapsKey:       os.Getenv("GOOGLE_MAPS_API_KEY"),
+		LeaderboardTimezone: getEnv("LEADERBOARD_TIMEZONE", "Asia/Jakarta"),
 	}
+
+	// Parse database pool sizes
+	c.DBMaxConns = int32(parseInt32Env("DB_MAX_CONNS", 25))
+	c.DBMinConns = int32(parseInt32Env("DB_MIN_CONNS", 5))
 
 	// Parse JWT TTL durations
 	accessTTL, err := time.ParseDuration(getEnv("JWT_ACCESS_TTL", "1h"))
@@ -62,8 +72,7 @@ func Load() *Config {
 	c.JWTRefreshTTL = refreshTTL
 
 	// Parse WebSocket token TTL
-	wsTokenTTLStr := getEnv("WS_TOKEN_TTL", "600")
-	wsTokenTTL, err := strconv.Atoi(wsTokenTTLStr)
+	wsTokenTTL, err := strconv.Atoi(getEnv("WS_TOKEN_TTL", "600"))
 	if err != nil {
 		log.Fatalf("invalid WS_TOKEN_TTL: %v", err)
 	}
@@ -87,4 +96,17 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// parseInt32Env parses an optional integer environment variable with a fallback
+func parseInt32Env(key string, fallback int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		log.Fatalf("invalid %s: %v", key, err)
+	}
+	return n
 }

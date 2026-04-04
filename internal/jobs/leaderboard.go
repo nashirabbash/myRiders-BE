@@ -11,15 +11,21 @@ import (
 
 // LeaderboardJob handles periodic leaderboard ranking computation
 type LeaderboardJob struct {
-	queries db.Queries
-	cron    *cron.Cron
+	queries  db.Queries
+	cron     *cron.Cron
+	timezone string
 }
 
-// NewLeaderboardJob creates a new leaderboard job
-func NewLeaderboardJob(queries db.Queries) *LeaderboardJob {
+// NewLeaderboardJob creates a new leaderboard job.
+// timezone should come from config (e.g. "Asia/Jakarta").
+func NewLeaderboardJob(queries db.Queries, timezone string) *LeaderboardJob {
+	if timezone == "" {
+		timezone = "Asia/Jakarta"
+	}
 	return &LeaderboardJob{
-		queries: queries,
-		cron:    cron.New(cron.WithLocation(mustLoadLocation("Asia/Jakarta"))),
+		queries:  queries,
+		cron:     cron.New(cron.WithLocation(mustLoadLocation(timezone))),
+		timezone: timezone,
 	}
 }
 
@@ -45,7 +51,7 @@ func (j *LeaderboardJob) Stop() {
 // computeWeekly computes weekly leaderboard rankings
 func (j *LeaderboardJob) computeWeekly() {
 	ctx := context.Background()
-	periodStart := getLastMonday()
+	periodStart := getLastMonday(j.timezone)
 
 	log.Printf("[Leaderboard] Computing weekly rankings for period starting %s", periodStart.Format("2006-01-02"))
 
@@ -59,9 +65,9 @@ func (j *LeaderboardJob) computeWeekly() {
 	_ = ctx
 }
 
-// getLastMonday returns the date of the last Monday
-func getLastMonday() time.Time {
-	now := time.Now().In(mustLoadLocation("Asia/Jakarta"))
+// getLastMonday returns the date of the last Monday in the given timezone
+func getLastMonday(timezone string) time.Time {
+	now := time.Now().In(mustLoadLocation(timezone))
 	daysBack := int(now.Weekday()) - int(time.Monday)
 	if daysBack < 0 {
 		daysBack += 7

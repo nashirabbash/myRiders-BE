@@ -32,8 +32,8 @@ func main() {
 		log.Fatalf("[DB] Failed to parse database URL: %v", err)
 	}
 
-	pgConfig.MaxConns = 25
-	pgConfig.MinConns = 5
+	pgConfig.MaxConns = cfg.DBMaxConns
+	pgConfig.MinConns = cfg.DBMinConns
 
 	pgPool, err := pgxpool.NewWithConfig(ctx, pgConfig)
 	if err != nil {
@@ -94,7 +94,7 @@ func main() {
 
 	// Initialize leaderboard cron job
 	// In Phase 2, pass store to leaderboard job for actual ranking computation
-	leaderboardJob := jobs.NewLeaderboardJob(nil)
+	leaderboardJob := jobs.NewLeaderboardJob(nil, cfg.LeaderboardTimezone)
 	leaderboardJob.Start()
 
 	// Setup router
@@ -109,18 +109,26 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Start server in a goroutine
+	// Start server in a goroutine; send fatal errors to errChan so the main
+	// goroutine can trigger a graceful shutdown instead of os.Exit via Fatalf.
+	errChan := make(chan error, 1)
 	go func() {
 		log.Printf("[Server] Starting on http://0.0.0.0:%s", cfg.Port)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("[Server] Failed to start: %v", err)
+			errChan <- err
 		}
 	}()
 
-	// Wait for interrupt signal
+	// Wait for OS signal or a server startup error
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
+
+	select {
+	case sig := <-sigChan:
+		log.Printf("[Shutdown] Received signal: %s", sig)
+	case err := <-errChan:
+		log.Printf("[Shutdown] Server error: %v — shutting down", err)
+	}
 
 	log.Println("[Shutdown] Graceful shutdown initiated...")
 

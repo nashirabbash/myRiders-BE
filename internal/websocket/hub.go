@@ -71,9 +71,12 @@ func (h *Hub) HandleWS(c *gin.Context) {
 		log.Printf("[WS] Upgrade error for ride=%s: %v", rideID, err)
 		return
 	}
+
+	// Register this connection; only the last disconnect flushes and removes the buffer
+	h.buffer.Connect(rideID)
 	defer func() {
 		conn.Close()
-		h.buffer.FlushAndClear(rideID)
+		h.buffer.Disconnect(rideID)
 		log.Printf("[WS] Disconnected: ride=%s user=%s", rideID, userID)
 	}()
 
