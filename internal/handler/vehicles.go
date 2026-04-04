@@ -228,39 +228,34 @@ func (h *VehiclesHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	// Verify vehicle exists and belongs to user (single query with user_id filter)
-	_, err = h.queries.GetVehicleByIDAndUser(c.Request.Context(), dbsqlc.GetVehicleByIDAndUserParams{
+	// Delete vehicle (atomic query prevents race condition with active rides check)
+	rowsAffected, err := h.queries.DeleteVehicle(c.Request.Context(), dbsqlc.DeleteVehicleParams{
 		ID:     vehicleUUID,
 		UserID: userUUID,
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "VEHICLE_NOT_FOUND"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+		return
+	}
+
+	// If no rows were deleted, differentiate between not found vs. in use
+	if rowsAffected == 0 {
+		// Check if vehicle exists at all
+		_, err := h.queries.GetVehicleByIDAndUser(c.Request.Context(), dbsqlc.GetVehicleByIDAndUserParams{
+			ID:     vehicleUUID,
+			UserID: userUUID,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "VEHICLE_NOT_FOUND"})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+			}
+			return
 		}
-		return
-	}
 
-	// Check if vehicle is being used in an active ride
-	hasActive, err := h.queries.HasActiveRide(c.Request.Context(), vehicleUUID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
-		return
-	}
-
-	if hasActive {
+		// Vehicle exists but deletion failed, so it must have an active ride
 		c.JSON(http.StatusConflict, gin.H{"error": "VEHICLE_IN_USE"})
-		return
-	}
-
-	// Delete vehicle
-	err = h.queries.DeleteVehicle(c.Request.Context(), dbsqlc.DeleteVehicleParams{
-		ID:     vehicleUUID,
-		UserID: userUUID,
-	})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
 		return
 	}
 

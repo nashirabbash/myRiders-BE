@@ -64,9 +64,12 @@ func (q *Queries) DeactivateVehicle(ctx context.Context, arg DeactivateVehiclePa
 	return err
 }
 
-const deleteVehicle = `-- name: DeleteVehicle :exec
-DELETE FROM vehicles
-WHERE id = $1 AND user_id = $2
+const deleteVehicle = `-- name: DeleteVehicle :execrows
+DELETE FROM vehicles v
+WHERE v.id = $1 AND v.user_id = $2
+AND NOT EXISTS (
+    SELECT 1 FROM rides WHERE rides.vehicle_id = v.id AND rides.status = 'active'
+)
 `
 
 type DeleteVehicleParams struct {
@@ -74,9 +77,12 @@ type DeleteVehicleParams struct {
 	UserID pgtype.UUID `db:"user_id" json:"user_id"`
 }
 
-func (q *Queries) DeleteVehicle(ctx context.Context, arg DeleteVehicleParams) error {
-	_, err := q.db.Exec(ctx, deleteVehicle, arg.ID, arg.UserID)
-	return err
+func (q *Queries) DeleteVehicle(ctx context.Context, arg DeleteVehicleParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteVehicle, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getVehicleByID = `-- name: GetVehicleByID :one
@@ -220,10 +226,10 @@ func (q *Queries) ListVehiclesByUser(ctx context.Context, userID pgtype.UUID) ([
 
 const updateVehicle = `-- name: UpdateVehicle :one
 UPDATE vehicles
-SET type = COALESCE($3, type),
-    name = COALESCE($4, name),
-    brand = COALESCE($5, brand),
-    color = COALESCE($6, color),
+SET type = $3,
+    name = $4,
+    brand = $5,
+    color = $6,
     updated_at = NOW()
 WHERE id = $1 AND user_id = $2
 RETURNING id, user_id, type, name, brand, color, is_active, created_at, updated_at
