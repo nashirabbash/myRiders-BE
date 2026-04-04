@@ -88,7 +88,7 @@ func main() {
 	}
 
 	// Initialize leaderboard cron job
-	leaderboardJob := jobs.NewLeaderboardJob(queries, cfg.LeaderboardTimezone)
+	leaderboardJob := jobs.NewLeaderboardJob(queries, pgPool, cfg.LeaderboardTimezone)
 	leaderboardJob.Start()
 
 	// Setup router

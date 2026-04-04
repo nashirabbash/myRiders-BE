@@ -85,12 +85,6 @@ func NewLeaderboardHandler(queries *dbsqlc.Queries, cfg *config.Config) *Leaderb
 	return &LeaderboardHandler{queries: queries, cfg: cfg}
 }
 
-// GetGlobal placeholder
-func (h *LeaderboardHandler) GetGlobal(c *gin.Context) {}
-
-// GetFriends placeholder
-func (h *LeaderboardHandler) GetFriends(c *gin.Context) {}
-
 // HealthHandler manages health check endpoints
 type HealthHandler struct{}
 
