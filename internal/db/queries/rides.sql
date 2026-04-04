@@ -8,6 +8,11 @@ SELECT id, user_id, vehicle_id, title, started_at, ended_at, distance_km, durati
 FROM rides
 WHERE id = $1;
 
+-- name: GetRideForUpdate :one
+SELECT id, user_id, vehicle_id, title, started_at, ended_at, distance_km, duration_seconds, max_speed_kmh, avg_speed_kmh, elevation_m, calories, route_summary, status, created_at, updated_at
+FROM rides
+WHERE id = $1 FOR UPDATE;
+
 -- name: GetActiveRide :one
 SELECT id, user_id, vehicle_id, title, started_at, ended_at, distance_km, duration_seconds, max_speed_kmh, avg_speed_kmh, elevation_m, calories, route_summary, status, created_at, updated_at
 FROM rides
@@ -72,12 +77,12 @@ VALUES ($1, $2, $3, $4, $5, $6);
 -- name: InsertGPSPointsBatch :exec
 INSERT INTO ride_gps_points (ride_id, latitude, longitude, speed_kmh, elevation_m, recorded_at)
 SELECT
-    UNNEST($1::uuid[]) as ride_id,
-    UNNEST($2::float8[]) as latitude,
-    UNNEST($3::float8[]) as longitude,
-    UNNEST($4::float8[]) as speed_kmh,
-    UNNEST($5::float8[]) as elevation_m,
-    UNNEST($6::timestamptz[]) as recorded_at;
+    UNNEST(sqlc.arg('ride_ids')::uuid[]) as ride_id,
+    UNNEST(sqlc.arg('latitudes')::float8[]) as latitude,
+    UNNEST(sqlc.arg('longitudes')::float8[]) as longitude,
+    UNNEST(sqlc.arg('speeds')::float8[]) as speed_kmh,
+    UNNEST(sqlc.arg('elevations')::float8[]) as elevation_m,
+    UNNEST(sqlc.arg('recorded_ats')::timestamptz[]) as recorded_at;
 
 -- name: GetGPSPointsByRide :many
 SELECT id, ride_id, latitude, longitude, speed_kmh, elevation_m, recorded_at, created_at

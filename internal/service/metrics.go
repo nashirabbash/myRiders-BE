@@ -127,13 +127,20 @@ func estimateCalories(distKm float64, durationMinutes float64, userWeightKg floa
 	avgSpeedKmh := (distKm / durationMinutes) * 60
 
 	// MET (Metabolic Equivalent) estimates based on speed
-	met := 6.0
-	if avgSpeedKmh >= 25 {
-		met = 14.0
-	} else if avgSpeedKmh >= 20 {
+	// More granular values for better accuracy across different ride intensities
+	met := 4.0
+	if avgSpeedKmh >= 30 {
+		met = 16.0
+	} else if avgSpeedKmh >= 26 {
+		met = 12.0
+	} else if avgSpeedKmh >= 22 {
 		met = 10.0
-	} else if avgSpeedKmh >= 15 {
+	} else if avgSpeedKmh >= 19 {
+		met = 8.5
+	} else if avgSpeedKmh >= 16 {
 		met = 8.0
+	} else if avgSpeedKmh >= 13 {
+		met = 6.0
 	}
 
 	durationHours := durationMinutes / 60.0

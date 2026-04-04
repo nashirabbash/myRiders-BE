@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"log"
 	"sync"
 	"time"
 
@@ -174,14 +175,17 @@ func (b *GPSBuffer) flushBuf(rideID string, buf *rideBuffer) {
 		times[i] = pgtype.Timestamptz{Time: point.Timestamp, Valid: true}
 	}
 
-	_ = b.queries.InsertGPSPointsBatch(ctx, sqlc.InsertGPSPointsBatchParams{
-		Column1: rideUUIDs,
-		Column2: lats,
-		Column3: lngs,
-		Column4: speeds,
-		Column5: elevs,
-		Column6: times,
+	flushErr := b.queries.InsertGPSPointsBatch(ctx, sqlc.InsertGPSPointsBatchParams{
+		RideIds:     rideUUIDs,
+		Latitudes:   lats,
+		Longitudes:  lngs,
+		Speeds:      speeds,
+		Elevations:  elevs,
+		RecordedAts: times,
 	})
+	if flushErr != nil {
+		log.Printf("[GPS Buffer] Error flushing %d points for ride %s: %v", len(points), rideID, flushErr)
+	}
 }
 
 // flushOnce resolves the buffer from the map and delegates to flushBuf.

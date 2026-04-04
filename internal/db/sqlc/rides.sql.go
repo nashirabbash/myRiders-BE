@@ -220,6 +220,36 @@ func (q *Queries) GetRideCount(ctx context.Context, userID pgtype.UUID) (int64, 
 	return count, err
 }
 
+const getRideForUpdate = `-- name: GetRideForUpdate :one
+SELECT id, user_id, vehicle_id, title, started_at, ended_at, distance_km, duration_seconds, max_speed_kmh, avg_speed_kmh, elevation_m, calories, route_summary, status, created_at, updated_at
+FROM rides
+WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) GetRideForUpdate(ctx context.Context, id pgtype.UUID) (Ride, error) {
+	row := q.db.QueryRow(ctx, getRideForUpdate, id)
+	var i Ride
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.VehicleID,
+		&i.Title,
+		&i.StartedAt,
+		&i.EndedAt,
+		&i.DistanceKm,
+		&i.DurationSeconds,
+		&i.MaxSpeedKmh,
+		&i.AvgSpeedKmh,
+		&i.ElevationM,
+		&i.Calories,
+		&i.RouteSummary,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserRideStats = `-- name: GetUserRideStats :one
 SELECT
     COUNT(*) as total_rides,
@@ -292,22 +322,22 @@ SELECT
 `
 
 type InsertGPSPointsBatchParams struct {
-	Column1 []pgtype.UUID        `db:"column_1" json:"column_1"`
-	Column2 []float64            `db:"column_2" json:"column_2"`
-	Column3 []float64            `db:"column_3" json:"column_3"`
-	Column4 []float64            `db:"column_4" json:"column_4"`
-	Column5 []float64            `db:"column_5" json:"column_5"`
-	Column6 []pgtype.Timestamptz `db:"column_6" json:"column_6"`
+	RideIds     []pgtype.UUID        `db:"ride_ids" json:"ride_ids"`
+	Latitudes   []float64            `db:"latitudes" json:"latitudes"`
+	Longitudes  []float64            `db:"longitudes" json:"longitudes"`
+	Speeds      []float64            `db:"speeds" json:"speeds"`
+	Elevations  []float64            `db:"elevations" json:"elevations"`
+	RecordedAts []pgtype.Timestamptz `db:"recorded_ats" json:"recorded_ats"`
 }
 
 func (q *Queries) InsertGPSPointsBatch(ctx context.Context, arg InsertGPSPointsBatchParams) error {
 	_, err := q.db.Exec(ctx, insertGPSPointsBatch,
-		arg.Column1,
-		arg.Column2,
-		arg.Column3,
-		arg.Column4,
-		arg.Column5,
-		arg.Column6,
+		arg.RideIds,
+		arg.Latitudes,
+		arg.Longitudes,
+		arg.Speeds,
+		arg.Elevations,
+		arg.RecordedAts,
 	)
 	return err
 }

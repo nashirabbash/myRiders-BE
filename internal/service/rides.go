@@ -68,6 +68,8 @@ func (s *RidesService) StartRide(ctx context.Context, userID, vehicleID, title s
 }
 
 // StopRide completes an active ride and computes metrics
+// TODO: Wrap the entire operation in a database transaction with SELECT...FOR UPDATE
+// to ensure atomicity and prevent concurrent stop requests from creating duplicate metrics
 func (s *RidesService) StopRide(ctx context.Context, rideID, userID string) (*sqlc.Ride, error) {
 	rideUUID, err := uuid.Parse(rideID)
 	if err != nil {
@@ -75,8 +77,9 @@ func (s *RidesService) StopRide(ctx context.Context, rideID, userID string) (*sq
 	}
 	rideUUIDPGType := pgtype.UUID{Bytes: rideUUID, Valid: true}
 
-	// Get ride
-	ride, err := s.queries.GetRideByID(ctx, rideUUIDPGType)
+	// Get ride with FOR UPDATE lock to prevent concurrent modifications
+	// Note: This requires transaction support to be fully effective
+	ride, err := s.queries.GetRideForUpdate(ctx, rideUUIDPGType)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("RIDE_NOT_FOUND")
@@ -137,6 +140,13 @@ func (s *RidesService) StopRide(ctx context.Context, rideID, userID string) (*sq
 	if err != nil {
 		return nil, fmt.Errorf("INTERNAL_ERROR")
 	}
+
+	// TODO: Resource Cleanup Strategy
+	// Consider implementing archival/purge of raw GPS points after ride completion:
+	// - Keep points for 30 days for debugging/audit purposes
+	// - Archive historical points to a separate table or S3
+	// - Implement incremental cleanup job to prevent ride_gps_points table growth
+	// - Keep summary polyline in route_summary JSONB for long-term retention
 
 	return &ride, nil
 }
