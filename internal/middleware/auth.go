@@ -8,8 +8,8 @@ import (
 	jwtpkg "github.com/nashirabbash/trackride/pkg/jwt"
 )
 
-// Auth returns a middleware that validates JWT access tokens
-func Auth(secret string) gin.HandlerFunc {
+// Auth creates a Gin middleware that validates JWT access tokens
+func Auth(accessSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -17,35 +17,40 @@ func Auth(secret string) gin.HandlerFunc {
 			return
 		}
 
-		// Extract "Bearer <token>"
+		// Expect "Bearer <token>" format
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || parts[0] != "Bearer" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
 			return
 		}
 
-		token := parts[1]
-		claims, err := jwtpkg.ParseToken(token, secret)
+		tokenString := parts[1]
+
+		// Parse and validate token
+		claims, err := jwtpkg.ParseToken(tokenString, accessSecret)
 		if err != nil {
-			errorCode := "TOKEN_INVALID"
-
-			// Distinguish between expired and other invalid token errors
-			if tokenErr, ok := err.(*jwtpkg.TokenError); ok && tokenErr.Code == "expired" {
-				errorCode = "TOKEN_EXPIRED"
+			if tokenErr, ok := err.(jwtpkg.TokenError); ok {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": tokenErr.Code})
+				return
 			}
-
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": errorCode})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
 			return
 		}
 
+		// Verify token type
+		if claims.Type != "access" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
+			return
+		}
+
+		// Store user_id in context for downstream handlers
 		c.Set("user_id", claims.UserID)
 		c.Next()
 	}
 }
 
-// GetUserID safely extracts the authenticated user ID from the request context.
-// Returns (userID, true) if valid, (empty, false) if missing or has invalid type.
-// Callers MUST check the boolean flag and return UNAUTHORIZED if false.
+// GetUserID safely retrieves the user_id from the Gin context
+// Returns the user_id and a boolean indicating success
 func GetUserID(c *gin.Context) (string, bool) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -53,7 +58,7 @@ func GetUserID(c *gin.Context) (string, bool) {
 	}
 
 	id, ok := userID.(string)
-	if !ok || id == "" {
+	if !ok {
 		return "", false
 	}
 

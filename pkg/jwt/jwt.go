@@ -2,83 +2,102 @@ package jwt
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
+	jwtlib "github.com/golang-jwt/jwt/v5"
 )
 
-// TokenError represents a JWT parsing/validation error
-type TokenError struct {
-	Code    string // "expired", "invalid", "malformed"
-	Message string
-}
-
-func (e *TokenError) Error() string {
-	return e.Message
-}
-
-// Claims represents custom JWT claims for TrackRide
+// Claims represents JWT claims with standard and custom fields
 type Claims struct {
 	UserID string `json:"sub"`
 	Type   string `json:"type"` // "access" or "refresh"
-	jwt.RegisteredClaims
+	jwtlib.RegisteredClaims
 }
 
-// GenerateAccessToken generates a new JWT access token
+// TokenError represents JWT validation errors
+type TokenError struct {
+	Code    string // e.g., "TOKEN_EXPIRED", "TOKEN_INVALID"
+	Message string
+}
+
+func (e TokenError) Error() string {
+	return e.Message
+}
+
+// GenerateAccessToken creates a JWT access token
 func GenerateAccessToken(userID string, secret string, ttl time.Duration) (string, error) {
 	claims := Claims{
 		UserID: userID,
 		Type:   "access",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		RegisteredClaims: jwtlib.RegisteredClaims{
+			ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(ttl)),
+			IssuedAt:  jwtlib.NewNumericDate(time.Now()),
+			NotBefore: jwtlib.NewNumericDate(time.Now()),
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secret))
+	token := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(secret))
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
 }
 
-// GenerateRefreshToken generates a new JWT refresh token
+// GenerateRefreshToken creates a JWT refresh token
 func GenerateRefreshToken(userID string, secret string, ttl time.Duration) (string, error) {
 	claims := Claims{
 		UserID: userID,
 		Type:   "refresh",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		RegisteredClaims: jwtlib.RegisteredClaims{
+			ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(ttl)),
+			IssuedAt:  jwtlib.NewNumericDate(time.Now()),
+			NotBefore: jwtlib.NewNumericDate(time.Now()),
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secret))
+	token := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(secret))
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
 }
 
-// ParseToken parses and validates a JWT token, returning specific error types
+// ParseToken validates and parses a token string
 func ParseToken(tokenString string, secret string) (*Claims, error) {
 	claims := &Claims{}
 
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		// Verify signing method
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+	token, err := jwtlib.ParseWithClaims(tokenString, claims, func(token *jwtlib.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwtlib.SigningMethodHMAC); !ok {
+			return nil, TokenError{
+				Code:    "TOKEN_INVALID",
+				Message: "invalid signing method",
+			}
 		}
 		return []byte(secret), nil
 	})
 
 	if err != nil {
-		// Check if token is expired by looking for the specific error
-		if errors.Is(err, jwt.ErrTokenExpired) {
-			return nil, &TokenError{Code: "expired", Message: "token has expired"}
+		if errors.Is(err, jwtlib.ErrTokenExpired) {
+			return nil, TokenError{
+				Code:    "TOKEN_EXPIRED",
+				Message: "token has expired",
+			}
 		}
-
-		// All other errors are treated as invalid
-		return nil, &TokenError{Code: "invalid", Message: "token is invalid or malformed"}
+		return nil, TokenError{
+			Code:    "TOKEN_INVALID",
+			Message: "invalid or malformed token",
+		}
 	}
 
 	if !token.Valid {
-		return nil, &TokenError{Code: "invalid", Message: "token is invalid"}
+		return nil, TokenError{
+			Code:    "TOKEN_INVALID",
+			Message: "token is not valid",
+		}
 	}
 
 	return claims, nil

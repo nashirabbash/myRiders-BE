@@ -33,11 +33,11 @@ type rideBuffer struct {
 type GPSBuffer struct {
 	buffers map[string]*rideBuffer
 	mu      sync.RWMutex
-	queries db.Queries // nil in Phase 1; set in Phase 2
+	queries *db.Queries // nil in Phase 1; set in Phase 2
 }
 
 // NewGPSBuffer creates a new GPS buffer
-func NewGPSBuffer(queries db.Queries) *GPSBuffer {
+func NewGPSBuffer(queries *db.Queries) *GPSBuffer {
 	return &GPSBuffer{
 		buffers: make(map[string]*rideBuffer),
 		queries: queries,
