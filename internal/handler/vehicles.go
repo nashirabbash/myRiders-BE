@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"github.com/jackc/pgx/v5"
 	dbsqlc "github.com/nashirabbash/trackride/internal/db/sqlc"
 	"github.com/nashirabbash/trackride/internal/middleware"
@@ -54,21 +55,14 @@ func mapVehicleToResponse(v dbsqlc.Vehicle) VehicleResponse {
 
 // List returns all vehicles belonging to the authenticated user
 func (h *VehiclesHandler) List(c *gin.Context) {
-	userID, ok := middleware.GetUserID(c)
+	userUUID, ok := middleware.GetUserUUID(c)
 	if !ok {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
 		return
 	}
 
-	// Parse UUID
-	id, err := parseUUID(userID)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "TOKEN_INVALID"})
-		return
-	}
-
 	// Fetch vehicles
-	vehicles, err := h.queries.ListVehiclesByUser(c.Request.Context(), id)
+	vehicles, err := h.queries.ListVehiclesByUser(c.Request.Context(), userUUID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
 		return
@@ -85,7 +79,7 @@ func (h *VehiclesHandler) List(c *gin.Context) {
 
 // Create adds a new vehicle for the authenticated user
 func (h *VehiclesHandler) Create(c *gin.Context) {
-	userID, ok := middleware.GetUserID(c)
+	userUUID, ok := middleware.GetUserUUID(c)
 	if !ok {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
 		return
@@ -97,16 +91,9 @@ func (h *VehiclesHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Parse UUID
-	id, err := parseUUID(userID)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "TOKEN_INVALID"})
-		return
-	}
-
 	// Create vehicle
 	vehicle, err := h.queries.CreateVehicle(c.Request.Context(), dbsqlc.CreateVehicleParams{
-		UserID: id,
+		UserID: userUUID,
 		Type:   req.Type,
 		Name:   req.Name,
 		Brand:  optionalStringPgtype(derefString(req.Brand)),
@@ -122,7 +109,7 @@ func (h *VehiclesHandler) Create(c *gin.Context) {
 
 // Update modifies an existing vehicle
 func (h *VehiclesHandler) Update(c *gin.Context) {
-	userID, ok := middleware.GetUserID(c)
+	userUUID, ok := middleware.GetUserUUID(c)
 	if !ok {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
 		return
@@ -130,16 +117,16 @@ func (h *VehiclesHandler) Update(c *gin.Context) {
 
 	vehicleID := c.Param("id")
 
-	var req UpdateVehicleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	// Get raw JSON to detect omitted vs explicitly null fields
+	var rawJSON map[string]interface{}
+	if err := c.ShouldBindBodyWith(&rawJSON, binding.JSON); err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "VALIDATION_ERROR", "detail": err.Error()})
 		return
 	}
 
-	// Parse UUIDs
-	userUUID, err := parseUUID(userID)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "TOKEN_INVALID"})
+	var req UpdateVehicleRequest
+	if err := c.ShouldBindBodyWith(&req, binding.JSON); err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "VALIDATION_ERROR", "detail": err.Error()})
 		return
 	}
 
@@ -149,7 +136,7 @@ func (h *VehiclesHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// Verify vehicle exists and belongs to user (single query with user_id filter)
+	// Verify vehicle exists and belongs to user
 	existing, err := h.queries.GetVehicleByIDAndUser(c.Request.Context(), dbsqlc.GetVehicleByIDAndUserParams{
 		ID:     vehicleUUID,
 		UserID: userUUID,
@@ -163,7 +150,7 @@ func (h *VehiclesHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// Use existing values for fields not provided
+	// Use existing values for fields not provided; allow clearing fields if explicitly sent as null
 	vehicleType := existing.Type
 	if req.Type != nil {
 		vehicleType = *req.Type
@@ -174,13 +161,16 @@ func (h *VehiclesHandler) Update(c *gin.Context) {
 		name = *req.Name
 	}
 
+	// For optional fields, check if they were explicitly sent (even if null)
 	brand := existing.Brand
-	if req.Brand != nil {
+	if _, exists := rawJSON["brand"]; exists {
+		// Field was sent (could be null or a string)
 		brand = optionalStringPgtype(derefString(req.Brand))
 	}
 
 	color := existing.Color
-	if req.Color != nil {
+	if _, exists := rawJSON["color"]; exists {
+		// Field was sent (could be null or a string)
 		color = optionalStringPgtype(derefString(req.Color))
 	}
 
@@ -207,20 +197,13 @@ func (h *VehiclesHandler) Update(c *gin.Context) {
 
 // Delete removes a vehicle (after checking it's not being used in active rides)
 func (h *VehiclesHandler) Delete(c *gin.Context) {
-	userID, ok := middleware.GetUserID(c)
+	userUUID, ok := middleware.GetUserUUID(c)
 	if !ok {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
 		return
 	}
 
 	vehicleID := c.Param("id")
-
-	// Parse UUIDs
-	userUUID, err := parseUUID(userID)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "TOKEN_INVALID"})
-		return
-	}
 
 	vehicleUUID, err := parseUUID(vehicleID)
 	if err != nil {
