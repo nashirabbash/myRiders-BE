@@ -24,7 +24,6 @@ type GPSPoint struct {
 
 type rideBuffer struct {
 	points    []GPSPoint
-	lastAdded time.Time
 	connRefs  int // number of active WebSocket connections for this ride
 	stopFlush chan struct{}
 	mu        sync.Mutex
@@ -64,13 +63,13 @@ func (b *GPSBuffer) Connect(rideID string) {
 	b.mu.Unlock()
 }
 
-// Disconnect decrements the reference count. Only flushes and removes the
-// buffer when the last connection for this ride closes.
+// Disconnect decrements the reference count. Holds the map lock for the entire
+// check-and-delete so a concurrent reconnect cannot observe an inconsistent state.
 func (b *GPSBuffer) Disconnect(rideID string) {
 	b.mu.Lock()
 	buf, ok := b.buffers[rideID]
-	b.mu.Unlock()
 	if !ok {
+		b.mu.Unlock()
 		return
 	}
 
@@ -80,13 +79,18 @@ func (b *GPSBuffer) Disconnect(rideID string) {
 	buf.mu.Unlock()
 
 	if last {
-		// Signal the flush goroutine to stop, do a final flush, then remove.
-		close(buf.stopFlush)
-		b.flushOnce(rideID)
-		b.mu.Lock()
+		// Remove from map while still holding b.mu so no new Connect can
+		// re-use the same rideID entry before we clean up.
 		delete(b.buffers, rideID)
 		b.mu.Unlock()
+
+		// Stop flush goroutine and drain remaining points directly from buf
+		// (cannot use flushOnce here — buf is no longer in the map).
+		close(buf.stopFlush)
+		b.flushBuf(buf)
+		return
 	}
+	b.mu.Unlock()
 }
 
 // Add appends a GPS point to the buffer. A batch flush is triggered immediately
@@ -101,7 +105,6 @@ func (b *GPSBuffer) Add(rideID string, point GPSPoint) {
 
 	buf.mu.Lock()
 	buf.points = append(buf.points, point)
-	buf.lastAdded = time.Now()
 	full := len(buf.points) >= batchSize
 	buf.mu.Unlock()
 
@@ -129,6 +132,25 @@ func (b *GPSBuffer) flushLoop(rideID string, buf *rideBuffer) {
 			return
 		}
 	}
+}
+
+// flushBuf drains buf directly without a map lookup. Used by Disconnect after
+// the entry has already been removed from b.buffers.
+func (b *GPSBuffer) flushBuf(buf *rideBuffer) {
+	buf.mu.Lock()
+	if len(buf.points) == 0 {
+		buf.mu.Unlock()
+		return
+	}
+	points := make([]GPSPoint, len(buf.points))
+	copy(points, buf.points)
+	buf.points = buf.points[:0]
+	buf.mu.Unlock()
+
+	// Phase 2: call queries.InsertGPSPointsBatch with points
+	ctx := context.Background()
+	_ = ctx
+	_ = points
 }
 
 // flushOnce drains the current buffer and persists points to the database.
