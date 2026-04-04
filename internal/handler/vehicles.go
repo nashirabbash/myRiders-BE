@@ -149,20 +149,17 @@ func (h *VehiclesHandler) Update(c *gin.Context) {
 		return
 	}
 
-	// Verify vehicle exists and belongs to user
-	existing, err := h.queries.GetVehicleByID(c.Request.Context(), vehicleUUID)
+	// Verify vehicle exists and belongs to user (single query with user_id filter)
+	existing, err := h.queries.GetVehicleByIDAndUser(c.Request.Context(), dbsqlc.GetVehicleByIDAndUserParams{
+		ID:     vehicleUUID,
+		UserID: userUUID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "VEHICLE_NOT_FOUND"})
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
 		}
-		return
-	}
-
-	// Security check: ensure vehicle belongs to authenticated user
-	if existing.UserID.String() != userID {
-		c.JSON(http.StatusNotFound, gin.H{"error": "VEHICLE_NOT_FOUND"})
 		return
 	}
 
@@ -231,20 +228,17 @@ func (h *VehiclesHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	// Verify vehicle exists and belongs to user
-	existing, err := h.queries.GetVehicleByID(c.Request.Context(), vehicleUUID)
+	// Verify vehicle exists and belongs to user (single query with user_id filter)
+	_, err = h.queries.GetVehicleByIDAndUser(c.Request.Context(), dbsqlc.GetVehicleByIDAndUserParams{
+		ID:     vehicleUUID,
+		UserID: userUUID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "VEHICLE_NOT_FOUND"})
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
 		}
-		return
-	}
-
-	// Security check: ensure vehicle belongs to authenticated user
-	if existing.UserID.String() != userID {
-		c.JSON(http.StatusNotFound, gin.H{"error": "VEHICLE_NOT_FOUND"})
 		return
 	}
 
@@ -270,5 +264,5 @@ func (h *VehiclesHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusNoContent, nil)
+	c.Status(http.StatusNoContent)
 }

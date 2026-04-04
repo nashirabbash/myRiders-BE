@@ -8,6 +8,11 @@ SELECT id, user_id, type, name, brand, color, is_active, created_at, updated_at
 FROM vehicles
 WHERE id = $1;
 
+-- name: GetVehicleByIDAndUser :one
+SELECT id, user_id, type, name, brand, color, is_active, created_at, updated_at
+FROM vehicles
+WHERE id = $1 AND user_id = $2;
+
 -- name: ListVehiclesByUser :many
 SELECT id, user_id, type, name, brand, color, is_active, created_at, updated_at
 FROM vehicles
