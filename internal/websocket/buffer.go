@@ -5,7 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nashirabbash/trackride/internal/db"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/nashirabbash/trackride/internal/db/sqlc"
 )
 
 const (
@@ -33,11 +35,11 @@ type rideBuffer struct {
 type GPSBuffer struct {
 	buffers map[string]*rideBuffer
 	mu      sync.RWMutex
-	queries *db.Queries // nil in Phase 1; set in Phase 2
+	queries *sqlc.Queries // nil in Phase 1; set in Phase 2
 }
 
 // NewGPSBuffer creates a new GPS buffer
-func NewGPSBuffer(queries *db.Queries) *GPSBuffer {
+func NewGPSBuffer(queries *sqlc.Queries) *GPSBuffer {
 	return &GPSBuffer{
 		buffers: make(map[string]*rideBuffer),
 		queries: queries,
@@ -87,7 +89,7 @@ func (b *GPSBuffer) Disconnect(rideID string) {
 		// Stop flush goroutine and drain remaining points directly from buf
 		// (cannot use flushOnce here — buf is no longer in the map).
 		close(buf.stopFlush)
-		b.flushBuf(buf)
+		b.flushBuf(rideID, buf)
 		return
 	}
 	b.mu.Unlock()
@@ -122,7 +124,7 @@ func (b *GPSBuffer) flushLoop(rideID string, buf *rideBuffer) {
 	for {
 		select {
 		case <-ticker.C:
-			b.flushBuf(buf) // call flushBuf directly; no map lookup needed
+			b.flushBuf(rideID, buf) // call flushBuf directly; no map lookup needed
 		case <-buf.stopFlush:
 			return
 		}
@@ -131,7 +133,7 @@ func (b *GPSBuffer) flushLoop(rideID string, buf *rideBuffer) {
 
 // flushBuf drains buf directly without a map lookup. Used by Disconnect after
 // the entry has already been removed from b.buffers, and by flushLoop.
-func (b *GPSBuffer) flushBuf(buf *rideBuffer) {
+func (b *GPSBuffer) flushBuf(rideID string, buf *rideBuffer) {
 	buf.mu.Lock()
 	if len(buf.points) == 0 {
 		buf.mu.Unlock()
@@ -142,10 +144,29 @@ func (b *GPSBuffer) flushBuf(buf *rideBuffer) {
 	buf.points = buf.points[:0]
 	buf.mu.Unlock()
 
-	// Phase 2: call queries.InsertGPSPointsBatch with points
+	// Insert points to database
+	if b.queries == nil {
+		return // nil queries in phase 1
+	}
+
 	ctx := context.Background()
-	_ = ctx
-	_ = points
+
+	// Parse ride UUID
+	rideUUID, err := parseUUID(rideID)
+	if err != nil {
+		return
+	}
+
+	for _, point := range points {
+		_ = b.queries.InsertGPSPoint(ctx, sqlc.InsertGPSPointParams{
+			RideID:     rideUUID,
+			Latitude:   point.Lat,
+			Longitude:  point.Lng,
+			SpeedKmh:   point.SpeedKmh,
+			ElevationM: point.ElevM,
+			RecordedAt: pgtype.Timestamptz{Time: point.Timestamp, Valid: true},
+		})
+	}
 }
 
 // flushOnce resolves the buffer from the map and delegates to flushBuf.
@@ -154,6 +175,15 @@ func (b *GPSBuffer) flushOnce(rideID string) {
 	buf, ok := b.buffers[rideID]
 	b.mu.RUnlock()
 	if ok {
-		b.flushBuf(buf)
+		b.flushBuf(rideID, buf)
 	}
+}
+
+// parseUUID converts a string to pgtype.UUID
+func parseUUID(s string) (pgtype.UUID, error) {
+	u, err := uuid.Parse(s)
+	if err != nil {
+		return pgtype.UUID{}, err
+	}
+	return pgtype.UUID{Bytes: u, Valid: true}, nil
 }

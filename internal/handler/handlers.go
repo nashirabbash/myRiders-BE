@@ -52,17 +52,7 @@ func NewRidesHandler(queries *dbsqlc.Queries, cfg *config.Config, redis *redis.C
 	return &RidesHandler{queries: queries, cfg: cfg, redis: redis}
 }
 
-// Start placeholder
-func (h *RidesHandler) Start(c *gin.Context) {}
-
-// Stop placeholder
-func (h *RidesHandler) Stop(c *gin.Context) {}
-
-// List placeholder
-func (h *RidesHandler) List(c *gin.Context) {}
-
-// GetByID placeholder
-func (h *RidesHandler) GetByID(c *gin.Context) {}
+// Methods Start, Stop, List, GetByID are defined in rides.go
 
 // SocialHandler manages social features (follows, likes, comments)
 type SocialHandler struct {

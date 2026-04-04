@@ -2,17 +2,25 @@ package polyline
 
 import "math"
 
-// Encode converts a slice of [lat, lng] coordinate pairs to Google Encoded Polyline format
+// Encode converts coordinates to Google Encoded Polyline format
+// Takes a slice of [2]float64 arrays where each contains [latitude, longitude]
 func Encode(coords [][2]float64) string {
+	if len(coords) == 0 {
+		return ""
+	}
+
 	var result []byte
-	var prevLat, prevLng int
+	var prevLat, prevLng int32
 
-	for _, c := range coords {
-		lat := int(math.Round(c[0] * 1e5))
-		lng := int(math.Round(c[1] * 1e5))
+	for _, coord := range coords {
+		lat := int32(math.Round(coord[0] * 1e5))
+		lng := int32(math.Round(coord[1] * 1e5))
 
-		result = append(result, encodeValue(lat-prevLat)...)
-		result = append(result, encodeValue(lng-prevLng)...)
+		latDelta := lat - prevLat
+		lngDelta := lng - prevLng
+
+		result = append(result, encodeValue(latDelta)...)
+		result = append(result, encodeValue(lngDelta)...)
 
 		prevLat = lat
 		prevLng = lng
@@ -21,55 +29,76 @@ func Encode(coords [][2]float64) string {
 	return string(result)
 }
 
-// encodeValue encodes a single value using variable-length encoding
-func encodeValue(v int) []byte {
-	v <<= 1
-	if v < 0 {
-		v = ^v
+// Decode converts a Google Encoded Polyline string back to coordinates
+func Decode(encoded string) [][2]float64 {
+	var coords [][2]float64
+	var lat, lng int32
+	var index int
+
+	for index < len(encoded) {
+		latDelta := decodeValue(encoded, &index)
+		lngDelta := decodeValue(encoded, &index)
+
+		lat += latDelta
+		lng += lngDelta
+
+		coords = append(coords, [2]float64{
+			float64(lat) / 1e5,
+			float64(lng) / 1e5,
+		})
+	}
+
+	return coords
+}
+
+// encodeValue encodes a single coordinate delta value
+func encodeValue(value int32) []byte {
+	// Left shift by 1 and invert if negative
+	value <<= 1
+	if value < 0 {
+		value = ^value
 	}
 
 	var chunks []byte
-	for v >= 0x20 {
-		chunks = append(chunks, byte((0x20|(v&0x1f))+63))
-		v >>= 5
+
+	// Break value into 5-bit chunks
+	for value >= 0x20 {
+		chunk := byte((0x20 | (value & 0x1f)) + 63)
+		chunks = append(chunks, chunk)
+		value >>= 5
 	}
-	chunks = append(chunks, byte(v+63))
+
+	// Add final chunk
+	chunks = append(chunks, byte(value+63))
 
 	return chunks
 }
 
-// Decode converts a Google Encoded Polyline string to [lat, lng] coordinate pairs
-func Decode(encoded string) [][2]float64 {
-	var coords [][2]float64
-	var lat, lng int
-	i := 0
+// decodeValue decodes a single coordinate delta value from the encoded string
+func decodeValue(encoded string, index *int) int32 {
+	var result int32
+	var shift uint
 
-	decodeValue := func() int {
-		result := 0
-		shift := 0
-		for {
-			if i >= len(encoded) {
-				break
-			}
-			b := int(encoded[i]) - 63
-			i++
-			result |= (b & 0x1f) << shift
-			shift += 5
-			if b < 0x20 {
-				break
-			}
+	for {
+		if *index >= len(encoded) {
+			break
 		}
-		if result&1 != 0 {
-			return ^(result >> 1)
+
+		b := int32(encoded[*index]) - 63
+		*index++
+
+		result |= (b & 0x1f) << shift
+		shift += 5
+
+		if b < 0x20 {
+			break
 		}
-		return result >> 1
 	}
 
-	for i < len(encoded) {
-		lat += decodeValue()
-		lng += decodeValue()
-		coords = append(coords, [2]float64{float64(lat) / 1e5, float64(lng) / 1e5})
+	// Invert if the least significant bit is set
+	if result&1 != 0 {
+		return ^(result >> 1)
 	}
 
-	return coords
+	return result >> 1
 }
