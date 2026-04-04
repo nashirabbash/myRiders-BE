@@ -72,20 +72,7 @@ func NewSocialHandler(queries *dbsqlc.Queries, cfg *config.Config) *SocialHandle
 	return &SocialHandler{queries: queries, cfg: cfg}
 }
 
-// GetFeed placeholder
-func (h *SocialHandler) GetFeed(c *gin.Context) {}
-
-// Follow placeholder
-func (h *SocialHandler) Follow(c *gin.Context) {}
-
-// Unfollow placeholder
-func (h *SocialHandler) Unfollow(c *gin.Context) {}
-
-// LikeRide placeholder
-func (h *SocialHandler) LikeRide(c *gin.Context) {}
-
-// CommentRide placeholder
-func (h *SocialHandler) CommentRide(c *gin.Context) {}
+// Methods GetFeed, Follow, Unfollow, LikeRide, CommentRide are defined in social.go
 
 // LeaderboardHandler manages leaderboard endpoints
 type LeaderboardHandler struct {
