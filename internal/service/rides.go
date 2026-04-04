@@ -89,18 +89,27 @@ func (s *RidesService) StopRide(ctx context.Context, rideID, userID string) (*sq
 		return nil, fmt.Errorf("FORBIDDEN")
 	}
 
+	// Verify ride is active before processing
+	if ride.Status != "active" {
+		return nil, fmt.Errorf("RIDE_NOT_ACTIVE")
+	}
+
 	// Get all GPS points for the ride
 	points, err := s.queries.GetGPSPointsByRide(ctx, rideUUIDPGType)
 	if err != nil && err != pgx.ErrNoRows {
 		return nil, fmt.Errorf("INTERNAL_ERROR")
 	}
 
+	// TODO: Fetch user weight from user profile for accurate calorie calculation
+	// For now, using default 70kg. Update when user weight field is added to database.
+	const defaultUserWeightKg = 70.0
+
 	// Compute metrics from GPS points
 	var metrics MetricsResult
 	endedAt := time.Now().UTC()
 
 	if len(points) >= 2 {
-		metrics = ComputeMetrics(points)
+		metrics = ComputeMetrics(points, defaultUserWeightKg)
 		// Build route summary
 		summary := BuildRouteSummary(points)
 		summaryJSON, _ := json.Marshal(summary)

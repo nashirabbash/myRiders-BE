@@ -157,16 +157,31 @@ func (b *GPSBuffer) flushBuf(rideID string, buf *rideBuffer) {
 		return
 	}
 
-	for _, point := range points {
-		_ = b.queries.InsertGPSPoint(ctx, sqlc.InsertGPSPointParams{
-			RideID:     rideUUID,
-			Latitude:   point.Lat,
-			Longitude:  point.Lng,
-			SpeedKmh:   point.SpeedKmh,
-			ElevationM: point.ElevM,
-			RecordedAt: pgtype.Timestamptz{Time: point.Timestamp, Valid: true},
-		})
+	// Batch insert GPS points for better performance
+	rideUUIDs := make([]pgtype.UUID, len(points))
+	lats := make([]float64, len(points))
+	lngs := make([]float64, len(points))
+	speeds := make([]float64, len(points))
+	elevs := make([]float64, len(points))
+	times := make([]pgtype.Timestamptz, len(points))
+
+	for i, point := range points {
+		rideUUIDs[i] = rideUUID
+		lats[i] = point.Lat
+		lngs[i] = point.Lng
+		speeds[i] = point.SpeedKmh
+		elevs[i] = point.ElevM
+		times[i] = pgtype.Timestamptz{Time: point.Timestamp, Valid: true}
 	}
+
+	_ = b.queries.InsertGPSPointsBatch(ctx, sqlc.InsertGPSPointsBatchParams{
+		Column1: rideUUIDs,
+		Column2: lats,
+		Column3: lngs,
+		Column4: speeds,
+		Column5: elevs,
+		Column6: times,
+	})
 }
 
 // flushOnce resolves the buffer from the map and delegates to flushBuf.

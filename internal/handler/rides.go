@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nashirabbash/trackride/internal/middleware"
-	"github.com/nashirabbash/trackride/internal/service"
 )
 
 // Start handles POST /rides/start
@@ -27,8 +26,7 @@ func (h *RidesHandler) Start(c *gin.Context) {
 		return
 	}
 
-	rideSvc := service.NewRidesService(h.queries)
-	ride, wsToken, err := rideSvc.StartRide(c, userID, req.VehicleID, req.Title)
+	ride, wsToken, err := h.service.StartRide(c, userID, req.VehicleID, req.Title)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -53,10 +51,13 @@ func (h *RidesHandler) Stop(c *gin.Context) {
 	}
 
 	rideID := c.Param("id")
-	rideSvc := service.NewRidesService(h.queries)
-	ride, err := rideSvc.StopRide(c, rideID, userID)
+	ride, err := h.service.StopRide(c, rideID, userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		statusCode := http.StatusNotFound
+		if err.Error() == "RIDE_NOT_ACTIVE" {
+			statusCode = http.StatusBadRequest
+		}
+		c.JSON(statusCode, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -82,8 +83,7 @@ func (h *RidesHandler) List(c *gin.Context) {
 		limit = 20
 	}
 
-	rideSvc := service.NewRidesService(h.queries)
-	rides, total, err := rideSvc.ListRides(c, userID, vehicleType, page, limit)
+	rides, total, err := h.service.ListRides(c, userID, vehicleType, page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
 		return
@@ -106,8 +106,7 @@ func (h *RidesHandler) GetByID(c *gin.Context) {
 	}
 
 	rideID := c.Param("id")
-	rideSvc := service.NewRidesService(h.queries)
-	ride, err := rideSvc.GetRideByID(c, rideID, userID)
+	ride, err := h.service.GetRideByID(c, rideID, userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "RIDE_NOT_FOUND"})
 		return

@@ -69,6 +69,16 @@ WHERE user_id = $1 AND status = 'completed';
 INSERT INTO ride_gps_points (ride_id, latitude, longitude, speed_kmh, elevation_m, recorded_at)
 VALUES ($1, $2, $3, $4, $5, $6);
 
+-- name: InsertGPSPointsBatch :exec
+INSERT INTO ride_gps_points (ride_id, latitude, longitude, speed_kmh, elevation_m, recorded_at)
+SELECT
+    UNNEST($1::uuid[]) as ride_id,
+    UNNEST($2::float8[]) as latitude,
+    UNNEST($3::float8[]) as longitude,
+    UNNEST($4::float8[]) as speed_kmh,
+    UNNEST($5::float8[]) as elevation_m,
+    UNNEST($6::timestamptz[]) as recorded_at;
+
 -- name: GetGPSPointsByRide :many
 SELECT id, ride_id, latitude, longitude, speed_kmh, elevation_m, recorded_at, created_at
 FROM ride_gps_points

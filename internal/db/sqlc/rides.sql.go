@@ -280,6 +280,38 @@ func (q *Queries) InsertGPSPoint(ctx context.Context, arg InsertGPSPointParams) 
 	return err
 }
 
+const insertGPSPointsBatch = `-- name: InsertGPSPointsBatch :exec
+INSERT INTO ride_gps_points (ride_id, latitude, longitude, speed_kmh, elevation_m, recorded_at)
+SELECT
+    UNNEST($1::uuid[]) as ride_id,
+    UNNEST($2::float8[]) as latitude,
+    UNNEST($3::float8[]) as longitude,
+    UNNEST($4::float8[]) as speed_kmh,
+    UNNEST($5::float8[]) as elevation_m,
+    UNNEST($6::timestamptz[]) as recorded_at
+`
+
+type InsertGPSPointsBatchParams struct {
+	Column1 []pgtype.UUID        `db:"column_1" json:"column_1"`
+	Column2 []float64            `db:"column_2" json:"column_2"`
+	Column3 []float64            `db:"column_3" json:"column_3"`
+	Column4 []float64            `db:"column_4" json:"column_4"`
+	Column5 []float64            `db:"column_5" json:"column_5"`
+	Column6 []pgtype.Timestamptz `db:"column_6" json:"column_6"`
+}
+
+func (q *Queries) InsertGPSPointsBatch(ctx context.Context, arg InsertGPSPointsBatchParams) error {
+	_, err := q.db.Exec(ctx, insertGPSPointsBatch,
+		arg.Column1,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Column5,
+		arg.Column6,
+	)
+	return err
+}
+
 const listRidesByUser = `-- name: ListRidesByUser :many
 SELECT id, user_id, vehicle_id, title, started_at, ended_at, distance_km, duration_seconds, max_speed_kmh, avg_speed_kmh, elevation_m, calories, route_summary, status, created_at, updated_at
 FROM rides

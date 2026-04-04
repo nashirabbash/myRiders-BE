@@ -36,7 +36,8 @@ const (
 )
 
 // ComputeMetrics calculates ride statistics from GPS points
-func ComputeMetrics(points []sqlc.RideGpsPoint) MetricsResult {
+// userWeightKg is used for calorie estimation (defaults to 70kg if <= 0)
+func ComputeMetrics(points []sqlc.RideGpsPoint, userWeightKg float64) MetricsResult {
 	if len(points) < 2 {
 		return MetricsResult{}
 	}
@@ -83,13 +84,13 @@ func ComputeMetrics(points []sqlc.RideGpsPoint) MetricsResult {
 	}
 
 	// Estimate calories (basic formula for cycling)
-	calories := estimateCalories(totalDistance, duration.Minutes())
+	calories := estimateCalories(totalDistance, duration.Minutes(), userWeightKg)
 
 	return MetricsResult{
-		DistanceKm:      math.Round(totalDistance*10) / 10,
+		DistanceKm:      math.Round(totalDistance*100) / 100,
 		DurationSeconds: durationSeconds,
-		MaxSpeedKmh:     math.Round(maxSpeed*10) / 10,
-		AvgSpeedKmh:     math.Round(avgSpeed*10) / 10,
+		MaxSpeedKmh:     math.Round(maxSpeed*100) / 100,
+		AvgSpeedKmh:     math.Round(avgSpeed*100) / 100,
 		ElevationM:      math.Round(totalElevationGain),
 		Calories:        int32(calories),
 	}
@@ -109,10 +110,17 @@ func haversineKm(lat1, lng1, lat2, lng2 float64) float64 {
 }
 
 // estimateCalories estimates calories burned during a ride
-// Uses a simplified formula based on distance and duration
-func estimateCalories(distKm float64, durationMinutes float64) float64 {
+// Uses formula: MET * weight(kg) * duration(hours)
+// Defaults to 70kg if user weight not provided
+func estimateCalories(distKm float64, durationMinutes float64, userWeightKg float64) float64 {
 	if durationMinutes <= 0 || distKm <= 0 {
 		return 0
+	}
+
+	// Use provided weight or default to 70kg
+	weight := userWeightKg
+	if weight <= 0 {
+		weight = 70.0
 	}
 
 	// Average speed in km/h
@@ -128,12 +136,8 @@ func estimateCalories(distKm float64, durationMinutes float64) float64 {
 		met = 8.0
 	}
 
-	// Standard formula: calories = MET * weight(kg) * duration(hours)
-	// Assuming average user weight of 70kg
-	avgWeight := 70.0
 	durationHours := durationMinutes / 60.0
-
-	return met * avgWeight * durationHours
+	return met * weight * durationHours
 }
 
 // BuildRouteSummary creates a summary of the route with polyline encoding
