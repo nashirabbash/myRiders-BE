@@ -11,14 +11,14 @@ import (
 
 // LeaderboardJob handles periodic leaderboard ranking computation
 type LeaderboardJob struct {
-	queries  db.Queries
+	queries  *db.Queries
 	cron     *cron.Cron
 	timezone string
 }
 
 // NewLeaderboardJob creates a new leaderboard job.
 // timezone should come from config (e.g. "Asia/Jakarta").
-func NewLeaderboardJob(queries db.Queries, timezone string) *LeaderboardJob {
+func NewLeaderboardJob(queries *db.Queries, timezone string) *LeaderboardJob {
 	if timezone == "" {
 		timezone = "Asia/Jakarta"
 	}

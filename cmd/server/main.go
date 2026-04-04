@@ -69,32 +69,26 @@ func main() {
 	cancel()
 	log.Println("[Redis] Redis connected ✓")
 
-	// Initialize database store
-	// In Phase 2, this will be initialized with actual sqlc queries:
-	// queries := sqlc.New(pgPool)
-	store := dbpkg.NewStore(pgPool)
-	_ = store
+	// Initialize sqlc queries
+	queries := dbpkg.NewQueries(pgPool)
 
 	// Initialize WebSocket components
-	// In Phase 2, pass store to GPS buffer for actual GPS point persistence
-	gpsBuffer := websocket.NewGPSBuffer(nil)
+	gpsBuffer := websocket.NewGPSBuffer(queries)
 	wsHub := websocket.NewHub(gpsBuffer, redisClient)
 
-	// Initialize handlers
-	// In Phase 2, pass store to handlers for actual database operations
+	// Initialize handlers with sqlc queries
 	handlers := &handler.Handlers{
-		Auth:        handler.NewAuthHandler(nil, cfg),
-		Users:       handler.NewUsersHandler(nil, cfg),
-		Vehicles:    handler.NewVehiclesHandler(nil, cfg),
-		Rides:       handler.NewRidesHandler(nil, cfg, redisClient),
-		Social:      handler.NewSocialHandler(nil, cfg),
-		Leaderboard: handler.NewLeaderboardHandler(nil, cfg),
+		Auth:        handler.NewAuthHandler(queries, cfg),
+		Users:       handler.NewUsersHandler(queries),
+		Vehicles:    handler.NewVehiclesHandler(queries, cfg),
+		Rides:       handler.NewRidesHandler(queries, cfg, redisClient),
+		Social:      handler.NewSocialHandler(queries, cfg),
+		Leaderboard: handler.NewLeaderboardHandler(queries, cfg),
 		Health:      &handler.HealthHandler{},
 	}
 
 	// Initialize leaderboard cron job
-	// In Phase 2, pass store to leaderboard job for actual ranking computation
-	leaderboardJob := jobs.NewLeaderboardJob(nil, cfg.LeaderboardTimezone)
+	leaderboardJob := jobs.NewLeaderboardJob(queries, cfg.LeaderboardTimezone)
 	leaderboardJob.Start()
 
 	// Setup router
