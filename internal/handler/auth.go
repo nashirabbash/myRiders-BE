@@ -75,7 +75,7 @@ type RefreshResponse struct {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "VALIDATION_ERROR", "detail": err.Error()})
+		RespondWithValidationError(c, err.Error())
 		return
 	}
 
@@ -87,14 +87,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		DisplayName: req.DisplayName,
 	})
 	if err != nil {
-		switch err.Error() {
-		case "EMAIL_TAKEN":
-			c.JSON(http.StatusConflict, gin.H{"error": "EMAIL_TAKEN"})
-		case "USERNAME_TAKEN":
-			c.JSON(http.StatusConflict, gin.H{"error": "USERNAME_TAKEN"})
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
-		}
+		RespondWithError(c, err)
 		return
 	}
 
@@ -115,7 +108,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "VALIDATION_ERROR", "detail": err.Error()})
+		RespondWithValidationError(c, err.Error())
 		return
 	}
 
@@ -125,11 +118,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		Password: req.Password,
 	})
 	if err != nil {
-		if err.Error() == "INVALID_CREDENTIALS" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "INVALID_CREDENTIALS"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
-		}
+		RespondWithError(c, err)
 		return
 	}
 
@@ -150,14 +139,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) Refresh(c *gin.Context) {
 	var req RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "VALIDATION_ERROR", "detail": err.Error()})
+		RespondWithValidationError(c, err.Error())
 		return
 	}
 
 	// Refresh access token
 	accessToken, expiresIn, err := h.authService.RefreshAccessToken(req.RefreshToken)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "TOKEN_INVALID"})
+		RespondWithError(c, err)
 		return
 	}
 

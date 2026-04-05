@@ -3,13 +3,13 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/nashirabbash/trackride/internal/db/sqlc"
+	domainerrors "github.com/nashirabbash/trackride/internal/errors"
 )
 
 // RidesService handles ride business logic
@@ -27,11 +27,11 @@ func (s *RidesService) StartRide(ctx context.Context, userID, vehicleID, title s
 	// Parse UUIDs
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
-		return nil, "", fmt.Errorf("INVALID_USER_ID")
+		return nil, "", domainerrors.ErrInvalidID
 	}
 	vehicleUUID, err := uuid.Parse(vehicleID)
 	if err != nil {
-		return nil, "", fmt.Errorf("INVALID_VEHICLE_ID")
+		return nil, "", domainerrors.ErrInvalidID
 	}
 
 	userPGType := pgtype.UUID{Bytes: userUUID, Valid: true}
@@ -41,14 +41,14 @@ func (s *RidesService) StartRide(ctx context.Context, userID, vehicleID, title s
 	vehicle, err := s.queries.GetVehicleByID(ctx, vehiclePGType)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, "", fmt.Errorf("VEHICLE_NOT_FOUND")
+			return nil, "", domainerrors.ErrVehicleNotFound
 		}
-		return nil, "", fmt.Errorf("INTERNAL_ERROR")
+		return nil, "", domainerrors.ErrInternalServerError
 	}
 
 	// Check if vehicle belongs to user
 	if vehicle.UserID.String() != userID {
-		return nil, "", fmt.Errorf("FORBIDDEN")
+		return nil, "", domainerrors.ErrForbidden
 	}
 
 	// Create new ride
@@ -58,7 +58,7 @@ func (s *RidesService) StartRide(ctx context.Context, userID, vehicleID, title s
 		StartedAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
 	})
 	if err != nil {
-		return nil, "", fmt.Errorf("INTERNAL_ERROR")
+		return nil, "", domainerrors.ErrInternalServerError
 	}
 
 	// Generate ws_token
@@ -73,7 +73,7 @@ func (s *RidesService) StartRide(ctx context.Context, userID, vehicleID, title s
 func (s *RidesService) StopRide(ctx context.Context, rideID, userID string) (*sqlc.Ride, error) {
 	rideUUID, err := uuid.Parse(rideID)
 	if err != nil {
-		return nil, fmt.Errorf("INVALID_RIDE_ID")
+		return nil, domainerrors.ErrInvalidID
 	}
 	rideUUIDPGType := pgtype.UUID{Bytes: rideUUID, Valid: true}
 
@@ -82,25 +82,25 @@ func (s *RidesService) StopRide(ctx context.Context, rideID, userID string) (*sq
 	ride, err := s.queries.GetRideForUpdate(ctx, rideUUIDPGType)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("RIDE_NOT_FOUND")
+			return nil, domainerrors.ErrRideNotFound
 		}
-		return nil, fmt.Errorf("INTERNAL_ERROR")
+		return nil, domainerrors.ErrInternalServerError
 	}
 
 	// Verify ride belongs to user
 	if ride.UserID.String() != userID {
-		return nil, fmt.Errorf("FORBIDDEN")
+		return nil, domainerrors.ErrForbidden
 	}
 
 	// Verify ride is active before processing
 	if ride.Status != "active" {
-		return nil, fmt.Errorf("RIDE_NOT_ACTIVE")
+		return nil, domainerrors.ErrRideNotActive
 	}
 
 	// Get all GPS points for the ride
 	points, err := s.queries.GetGPSPointsByRide(ctx, rideUUIDPGType)
 	if err != nil && err != pgx.ErrNoRows {
-		return nil, fmt.Errorf("INTERNAL_ERROR")
+		return nil, domainerrors.ErrInternalServerError
 	}
 
 	// TODO: Fetch user weight from user profile for accurate calorie calculation
@@ -138,7 +138,7 @@ func (s *RidesService) StopRide(ctx context.Context, rideID, userID string) (*sq
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("INTERNAL_ERROR")
+		return nil, domainerrors.ErrInternalServerError
 	}
 
 	// TODO: Resource Cleanup Strategy
@@ -155,7 +155,7 @@ func (s *RidesService) StopRide(ctx context.Context, rideID, userID string) (*sq
 func (s *RidesService) ListRides(ctx context.Context, userID string, vehicleType string, page, limit int) ([]sqlc.Ride, int64, error) {
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("INVALID_USER_ID")
+		return nil, 0, domainerrors.ErrInvalidID
 	}
 	userPGType := pgtype.UUID{Bytes: userUUID, Valid: true}
 	offset := int32((page - 1) * limit)
@@ -170,13 +170,13 @@ func (s *RidesService) ListRides(ctx context.Context, userID string, vehicleType
 		Offset: offset,
 	})
 	if err != nil && err != pgx.ErrNoRows {
-		return nil, 0, fmt.Errorf("INTERNAL_ERROR")
+		return nil, 0, domainerrors.ErrInternalServerError
 	}
 
 	// Get total count
 	total, err = s.queries.GetRideCount(ctx, userPGType)
 	if err != nil {
-		return nil, 0, fmt.Errorf("INTERNAL_ERROR")
+		return nil, 0, domainerrors.ErrInternalServerError
 	}
 
 	if rides == nil {
@@ -190,21 +190,21 @@ func (s *RidesService) ListRides(ctx context.Context, userID string, vehicleType
 func (s *RidesService) GetRideByID(ctx context.Context, rideID, userID string) (*sqlc.Ride, error) {
 	rideUUID, err := uuid.Parse(rideID)
 	if err != nil {
-		return nil, fmt.Errorf("INVALID_RIDE_ID")
+		return nil, domainerrors.ErrInvalidID
 	}
 	rideUUIDPGType := pgtype.UUID{Bytes: rideUUID, Valid: true}
 
 	ride, err := s.queries.GetRideByID(ctx, rideUUIDPGType)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("RIDE_NOT_FOUND")
+			return nil, domainerrors.ErrRideNotFound
 		}
-		return nil, fmt.Errorf("INTERNAL_ERROR")
+		return nil, domainerrors.ErrInternalServerError
 	}
 
 	// Verify user owns the ride
 	if ride.UserID.String() != userID {
-		return nil, fmt.Errorf("FORBIDDEN")
+		return nil, domainerrors.ErrForbidden
 	}
 
 	return &ride, nil

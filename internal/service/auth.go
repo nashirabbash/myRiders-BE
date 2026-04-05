@@ -3,13 +3,15 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 	"github.com/nashirabbash/trackride/internal/config"
 	"github.com/nashirabbash/trackride/internal/db/sqlc"
+	domainerrors "github.com/nashirabbash/trackride/internal/errors"
 	jwtpkg "github.com/nashirabbash/trackride/pkg/jwt"
 )
 
@@ -68,25 +70,25 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (*sqlc.
 	// Check if email already exists
 	_, err := s.queries.GetUserByEmail(ctx, req.Email)
 	if err == nil {
-		return nil, nil, fmt.Errorf("EMAIL_TAKEN")
+		return nil, nil, domainerrors.ErrEmailTaken
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil, fmt.Errorf("INTERNAL_ERROR")
+		return nil, nil, domainerrors.ErrInternalServerError
 	}
 
 	// Check if username already exists
 	_, err = s.queries.GetUserByUsername(ctx, req.Username)
 	if err == nil {
-		return nil, nil, fmt.Errorf("USERNAME_TAKEN")
+		return nil, nil, domainerrors.ErrUsernameTaken
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil, fmt.Errorf("INTERNAL_ERROR")
+		return nil, nil, domainerrors.ErrInternalServerError
 	}
 
 	// Hash password
 	passwordHash, err := s.HashPassword(req.Password)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, domainerrors.ErrInternalServerError
 	}
 
 	// Create user
@@ -97,13 +99,20 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (*sqlc.
 		DisplayName:  req.DisplayName,
 	})
 	if err != nil {
-		return nil, nil, err
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			if strings.Contains(pgErr.ConstraintName, "email") {
+				return nil, nil, domainerrors.ErrEmailTaken
+			}
+			return nil, nil, domainerrors.ErrUsernameTaken
+		}
+		return nil, nil, domainerrors.ErrInternalServerError
 	}
 
 	// Generate tokens
 	tokens, err := s.GenerateTokens(user.ID.String())
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, domainerrors.ErrInternalServerError
 	}
 
 	return &user, tokens, nil
@@ -114,18 +123,18 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (*sqlc.User, 
 	// Get user by email
 	user, err := s.queries.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		return nil, nil, fmt.Errorf("INVALID_CREDENTIALS")
+		return nil, nil, domainerrors.ErrInvalidCredentials
 	}
 
 	// Verify password
 	if !s.VerifyPassword(user.PasswordHash, req.Password) {
-		return nil, nil, fmt.Errorf("INVALID_CREDENTIALS")
+		return nil, nil, domainerrors.ErrInvalidCredentials
 	}
 
 	// Generate tokens
 	tokens, err := s.GenerateTokens(user.ID.String())
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, domainerrors.ErrInternalServerError
 	}
 
 	return &user, tokens, nil
@@ -169,12 +178,15 @@ func (s *AuthService) RefreshAccessToken(refreshTokenStr string) (string, int64,
 	// Parse refresh token
 	claims, err := jwtpkg.ParseToken(refreshTokenStr, s.cfg.JWTRefreshSecret)
 	if err != nil {
-		return "", 0, fmt.Errorf("TOKEN_INVALID")
+		if tokenErr, ok := err.(jwtpkg.TokenError); ok && tokenErr.Code == "TOKEN_EXPIRED" {
+			return "", 0, domainerrors.ErrTokenExpired
+		}
+		return "", 0, domainerrors.ErrTokenInvalid
 	}
 
 	// Verify token type
 	if claims.Type != "refresh" {
-		return "", 0, fmt.Errorf("TOKEN_INVALID")
+		return "", 0, domainerrors.ErrTokenInvalid
 	}
 
 	// Use configured access token TTL
@@ -186,7 +198,7 @@ func (s *AuthService) RefreshAccessToken(refreshTokenStr string) (string, int64,
 	// Generate new access token
 	accessToken, err := jwtpkg.GenerateAccessToken(claims.UserID(), s.cfg.JWTAccessSecret, accessTTL)
 	if err != nil {
-		return "", 0, err
+		return "", 0, domainerrors.ErrInternalServerError
 	}
 
 	return accessToken, int64(accessTTL.Seconds()), nil

@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"github.com/jackc/pgx/v5"
 	dbsqlc "github.com/nashirabbash/trackride/internal/db/sqlc"
+	domainerrors "github.com/nashirabbash/trackride/internal/errors"
 	"github.com/nashirabbash/trackride/internal/middleware"
 )
 
@@ -57,14 +58,14 @@ func mapVehicleToResponse(v dbsqlc.Vehicle) VehicleResponse {
 func (h *VehiclesHandler) List(c *gin.Context) {
 	userUUID, ok := middleware.GetUserUUID(c)
 	if !ok {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
+		RespondWithError(c, domainerrors.ErrUnauthorized)
 		return
 	}
 
 	// Fetch vehicles
 	vehicles, err := h.queries.ListVehiclesByUser(c.Request.Context(), userUUID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+		RespondWithError(c, domainerrors.ErrInternalServerError)
 		return
 	}
 
@@ -81,13 +82,13 @@ func (h *VehiclesHandler) List(c *gin.Context) {
 func (h *VehiclesHandler) Create(c *gin.Context) {
 	userUUID, ok := middleware.GetUserUUID(c)
 	if !ok {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
+		RespondWithError(c, domainerrors.ErrUnauthorized)
 		return
 	}
 
 	var req CreateVehicleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "VALIDATION_ERROR", "detail": err.Error()})
+		RespondWithValidationError(c, err.Error())
 		return
 	}
 
@@ -100,7 +101,7 @@ func (h *VehiclesHandler) Create(c *gin.Context) {
 		Color:  optionalStringPgtype(derefString(req.Color)),
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+		RespondWithError(c, domainerrors.ErrInternalServerError)
 		return
 	}
 
@@ -111,7 +112,7 @@ func (h *VehiclesHandler) Create(c *gin.Context) {
 func (h *VehiclesHandler) Update(c *gin.Context) {
 	userUUID, ok := middleware.GetUserUUID(c)
 	if !ok {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
+		RespondWithError(c, domainerrors.ErrUnauthorized)
 		return
 	}
 
@@ -120,19 +121,19 @@ func (h *VehiclesHandler) Update(c *gin.Context) {
 	// Get raw JSON to detect omitted vs explicitly null fields
 	var rawJSON map[string]interface{}
 	if err := c.ShouldBindBodyWith(&rawJSON, binding.JSON); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "VALIDATION_ERROR", "detail": err.Error()})
+		RespondWithValidationError(c, err.Error())
 		return
 	}
 
 	var req UpdateVehicleRequest
 	if err := c.ShouldBindBodyWith(&req, binding.JSON); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "VALIDATION_ERROR", "detail": err.Error()})
+		RespondWithValidationError(c, err.Error())
 		return
 	}
 
 	vehicleUUID, err := parseUUID(vehicleID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_ID"})
+		RespondWithError(c, domainerrors.ErrInvalidID)
 		return
 	}
 
@@ -143,9 +144,9 @@ func (h *VehiclesHandler) Update(c *gin.Context) {
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "VEHICLE_NOT_FOUND"})
+			RespondWithError(c, domainerrors.ErrVehicleNotFound)
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+			RespondWithError(c, domainerrors.ErrInternalServerError)
 		}
 		return
 	}
@@ -185,9 +186,9 @@ func (h *VehiclesHandler) Update(c *gin.Context) {
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "VEHICLE_NOT_FOUND"})
+			RespondWithError(c, domainerrors.ErrVehicleNotFound)
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+			RespondWithError(c, domainerrors.ErrInternalServerError)
 		}
 		return
 	}
@@ -199,7 +200,7 @@ func (h *VehiclesHandler) Update(c *gin.Context) {
 func (h *VehiclesHandler) Delete(c *gin.Context) {
 	userUUID, ok := middleware.GetUserUUID(c)
 	if !ok {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
+		RespondWithError(c, domainerrors.ErrUnauthorized)
 		return
 	}
 
@@ -207,7 +208,7 @@ func (h *VehiclesHandler) Delete(c *gin.Context) {
 
 	vehicleUUID, err := parseUUID(vehicleID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_ID"})
+		RespondWithError(c, domainerrors.ErrInvalidID)
 		return
 	}
 
@@ -217,7 +218,7 @@ func (h *VehiclesHandler) Delete(c *gin.Context) {
 		UserID: userUUID,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+		RespondWithError(c, domainerrors.ErrInternalServerError)
 		return
 	}
 
@@ -230,15 +231,15 @@ func (h *VehiclesHandler) Delete(c *gin.Context) {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				c.JSON(http.StatusNotFound, gin.H{"error": "VEHICLE_NOT_FOUND"})
+				RespondWithError(c, domainerrors.ErrVehicleNotFound)
 			} else {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+				RespondWithError(c, domainerrors.ErrInternalServerError)
 			}
 			return
 		}
 
 		// Vehicle exists but deletion failed, so it must have an active ride
-		c.JSON(http.StatusConflict, gin.H{"error": "VEHICLE_IN_USE"})
+		RespondWithError(c, domainerrors.ErrVehicleInUse)
 		return
 	}
 

@@ -1,7 +1,11 @@
 package handler
 
 import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/nashirabbash/trackride/internal/errors"
 )
 
 // parseUUID converts a string to pgtype.UUID
@@ -41,4 +45,23 @@ func derefString(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// RespondWithError responds to a request with an error, using domain error types for proper status codes
+func RespondWithError(c *gin.Context, err error) {
+	if de := errors.AsDomainError(err); de != nil {
+		c.JSON(de.StatusCode, gin.H{"error": de.Code})
+		return
+	}
+
+	// Default to internal server error for unknown error types
+	c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+}
+
+// RespondWithValidationError responds with a validation error
+func RespondWithValidationError(c *gin.Context, details string) {
+	c.JSON(http.StatusUnprocessableEntity, gin.H{
+		"error":  "VALIDATION_ERROR",
+		"detail": details,
+	})
 }
