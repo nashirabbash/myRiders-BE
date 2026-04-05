@@ -20,3 +20,8 @@
 *.out
 .env
 .env.local
+
+# Temporary patch and config files
+.codex
+*.patch
+RELEASE_CHECKLIST.md
