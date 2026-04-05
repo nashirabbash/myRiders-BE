@@ -295,6 +295,131 @@ func (q *Queries) DeleteLeaderboardEntries(ctx context.Context, arg DeleteLeader
 	return err
 }
 
+const deleteLeaderboardPeriod = `-- name: DeleteLeaderboardPeriod :exec
+DELETE FROM leaderboard_entries
+WHERE period_type = $1 AND period_start = $2
+`
+
+type DeleteLeaderboardPeriodParams struct {
+	PeriodType  string      `db:"period_type" json:"period_type"`
+	PeriodStart pgtype.Date `db:"period_start" json:"period_start"`
+}
+
+func (q *Queries) DeleteLeaderboardPeriod(ctx context.Context, arg DeleteLeaderboardPeriodParams) error {
+	_, err := q.db.Exec(ctx, deleteLeaderboardPeriod, arg.PeriodType, arg.PeriodStart)
+	return err
+}
+
+const getFriendsLeaderboard = `-- name: GetFriendsLeaderboard :many
+SELECT l.id, l.user_id, l.vehicle_type, l.period_type, l.period_start, l.total_km, l.total_rides, l.rank, l.created_at, l.updated_at
+FROM leaderboard_entries l
+JOIN follows f ON l.user_id = f.following_id
+WHERE f.follower_id = $1 AND l.period_type = $2 AND l.period_start = $3
+ORDER BY l.rank ASC
+LIMIT $4 OFFSET $5
+`
+
+type GetFriendsLeaderboardParams struct {
+	FollowerID  pgtype.UUID `db:"follower_id" json:"follower_id"`
+	PeriodType  string      `db:"period_type" json:"period_type"`
+	PeriodStart pgtype.Date `db:"period_start" json:"period_start"`
+	Limit       int32       `db:"limit" json:"limit"`
+	Offset      int32       `db:"offset" json:"offset"`
+}
+
+func (q *Queries) GetFriendsLeaderboard(ctx context.Context, arg GetFriendsLeaderboardParams) ([]LeaderboardEntry, error) {
+	rows, err := q.db.Query(ctx, getFriendsLeaderboard,
+		arg.FollowerID,
+		arg.PeriodType,
+		arg.PeriodStart,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LeaderboardEntry{}
+	for rows.Next() {
+		var i LeaderboardEntry
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.VehicleType,
+			&i.PeriodType,
+			&i.PeriodStart,
+			&i.TotalKm,
+			&i.TotalRides,
+			&i.Rank,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFriendsLeaderboardByVehicle = `-- name: GetFriendsLeaderboardByVehicle :many
+SELECT l.id, l.user_id, l.vehicle_type, l.period_type, l.period_start, l.total_km, l.total_rides, l.rank, l.created_at, l.updated_at
+FROM leaderboard_entries l
+JOIN follows f ON l.user_id = f.following_id
+WHERE f.follower_id = $1 AND l.period_type = $2 AND l.period_start = $3 AND l.vehicle_type = $4
+ORDER BY l.rank ASC
+LIMIT $5 OFFSET $6
+`
+
+type GetFriendsLeaderboardByVehicleParams struct {
+	FollowerID  pgtype.UUID     `db:"follower_id" json:"follower_id"`
+	PeriodType  string          `db:"period_type" json:"period_type"`
+	PeriodStart pgtype.Date     `db:"period_start" json:"period_start"`
+	VehicleType NullVehicleType `db:"vehicle_type" json:"vehicle_type"`
+	Limit       int32           `db:"limit" json:"limit"`
+	Offset      int32           `db:"offset" json:"offset"`
+}
+
+func (q *Queries) GetFriendsLeaderboardByVehicle(ctx context.Context, arg GetFriendsLeaderboardByVehicleParams) ([]LeaderboardEntry, error) {
+	rows, err := q.db.Query(ctx, getFriendsLeaderboardByVehicle,
+		arg.FollowerID,
+		arg.PeriodType,
+		arg.PeriodStart,
+		arg.VehicleType,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LeaderboardEntry{}
+	for rows.Next() {
+		var i LeaderboardEntry
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.VehicleType,
+			&i.PeriodType,
+			&i.PeriodStart,
+			&i.TotalKm,
+			&i.TotalRides,
+			&i.Rank,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getLeaderboardByPeriod = `-- name: GetLeaderboardByPeriod :many
 SELECT id, user_id, vehicle_type, period_type, period_start, total_km, total_rides, rank, created_at, updated_at
 FROM leaderboard_entries
@@ -543,6 +668,16 @@ func (q *Queries) GetUserRankingHistory(ctx context.Context, arg GetUserRankingH
 		return nil, err
 	}
 	return items, nil
+}
+
+type InsertLeaderboardEntriesBulkParams struct {
+	UserID      pgtype.UUID     `db:"user_id" json:"user_id"`
+	VehicleType NullVehicleType `db:"vehicle_type" json:"vehicle_type"`
+	PeriodType  string          `db:"period_type" json:"period_type"`
+	PeriodStart pgtype.Date     `db:"period_start" json:"period_start"`
+	TotalKm     float64         `db:"total_km" json:"total_km"`
+	TotalRides  int32           `db:"total_rides" json:"total_rides"`
+	Rank        int32           `db:"rank" json:"rank"`
 }
 
 const insertLeaderboardEntry = `-- name: InsertLeaderboardEntry :exec

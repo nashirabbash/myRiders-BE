@@ -2,10 +2,18 @@
 INSERT INTO leaderboard_entries (user_id, vehicle_type, period_type, period_start, total_km, total_rides, rank)
 VALUES ($1, $2, $3, $4, $5, $6, $7);
 
+-- name: InsertLeaderboardEntriesBulk :copyfrom
+INSERT INTO leaderboard_entries (user_id, vehicle_type, period_type, period_start, total_km, total_rides, rank)
+VALUES ($1, $2, $3, $4, $5, $6, $7);
+
 -- name: DeleteLeaderboardEntries :exec
 DELETE FROM leaderboard_entries
 WHERE period_type = $1 AND period_start = $2
   AND (vehicle_type IS NULL OR vehicle_type = $3);
+
+-- name: DeleteLeaderboardPeriod :exec
+DELETE FROM leaderboard_entries
+WHERE period_type = $1 AND period_start = $2;
 
 -- name: GetLeaderboardByPeriod :many
 SELECT id, user_id, vehicle_type, period_type, period_start, total_km, total_rides, rank, created_at, updated_at
@@ -124,3 +132,19 @@ WHERE r.status = 'completed'
   AND v.type = $1
 GROUP BY r.user_id, v.type
 ORDER BY total_km DESC, total_rides DESC;
+
+-- name: GetFriendsLeaderboard :many
+SELECT l.id, l.user_id, l.vehicle_type, l.period_type, l.period_start, l.total_km, l.total_rides, l.rank, l.created_at, l.updated_at
+FROM leaderboard_entries l
+JOIN follows f ON l.user_id = f.following_id
+WHERE f.follower_id = $1 AND l.period_type = $2 AND l.period_start = $3
+ORDER BY l.rank ASC
+LIMIT $4 OFFSET $5;
+
+-- name: GetFriendsLeaderboardByVehicle :many
+SELECT l.id, l.user_id, l.vehicle_type, l.period_type, l.period_start, l.total_km, l.total_rides, l.rank, l.created_at, l.updated_at
+FROM leaderboard_entries l
+JOIN follows f ON l.user_id = f.following_id
+WHERE f.follower_id = $1 AND l.period_type = $2 AND l.period_start = $3 AND l.vehicle_type = $4
+ORDER BY l.rank ASC
+LIMIT $5 OFFSET $6;
