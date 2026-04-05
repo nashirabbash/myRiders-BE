@@ -41,6 +41,16 @@ type UserProfileResponse struct {
 }
 
 // GetMe retrieves the authenticated user's profile
+//
+//	@Summary		Get current user profile
+//	@Description	Retrieve the authenticated user's complete profile
+//	@Tags			Users
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200		{object}	UserProfileResponse
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Failure		404		{object}	ErrorResponse	"User not found"
+//	@Router			/v1/users/me [get]
 func (h *UsersHandler) GetMe(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
@@ -79,6 +89,19 @@ func (h *UsersHandler) GetMe(c *gin.Context) {
 }
 
 // UpdateMe updates the authenticated user's profile
+//
+//	@Summary		Update current user profile
+//	@Description	Update the authenticated user's display name and/or avatar URL
+//	@Tags			Users
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			body	body		UpdateProfileRequest	true	"Profile update data (all fields optional)"
+//	@Success		200		{object}	UserProfileResponse
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Failure		404		{object}	ErrorResponse	"User not found"
+//	@Failure		422		{object}	ErrorResponse	"Validation error"
+//	@Router			/v1/users/me [put]
 func (h *UsersHandler) UpdateMe(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
@@ -141,6 +164,18 @@ func (h *UsersHandler) UpdateMe(c *gin.Context) {
 }
 
 // GetProfile retrieves a public user profile by ID
+//
+//	@Summary		Get user profile by ID
+//	@Description	Retrieve a public user profile. Does not return email address.
+//	@Tags			Users
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		string	true	"User ID (UUID format)"
+//	@Success		200		{object}	object
+//	@Failure		400		{object}	ErrorResponse	"Invalid ID format"
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Failure		404		{object}	ErrorResponse	"User not found"
+//	@Router			/v1/users/{id} [get]
 func (h *UsersHandler) GetProfile(c *gin.Context) {
 	userID := c.Param("id")
 

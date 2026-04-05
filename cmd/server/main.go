@@ -1,3 +1,20 @@
+// Package main contains the entry point for the TrackRide Backend application.
+//
+//	@title			TrackRide API
+//	@version		1.0.0
+//	@description	Backend API for the TrackRide mobile application. Provides user authentication, vehicle tracking, ride logging, and social features.
+//	@contact.name	TrackRide Support
+//	@contact.url	https://github.com/nashirabbash/trackride
+//	@license.name	MIT
+//	@license.url	https://github.com/nashirabbash/trackride/blob/master/LICENSE.txt
+//	@host			api.trackride.app
+//	@basePath		/
+//	@schemes		https
+//
+//	@securityDefinitions.apikey	BearerAuth
+//	@in							header
+//	@name						Authorization
+//	@description				JWT Bearer token authentication. Pass as "Authorization: Bearer <token>"
 package main
 
 import (

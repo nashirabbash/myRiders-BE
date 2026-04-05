@@ -2,10 +2,13 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
+	ginswagger "github.com/swaggo/gin-swagger"
+	files "github.com/swaggo/files"
 	"github.com/nashirabbash/trackride/internal/config"
 	"github.com/nashirabbash/trackride/internal/handler"
 	"github.com/nashirabbash/trackride/internal/middleware"
 	"github.com/nashirabbash/trackride/internal/websocket"
+	_ "github.com/nashirabbash/trackride/internal/swag"
 )
 
 // Setup initializes and returns the Gin router with all routes mounted
@@ -14,6 +17,9 @@ func Setup(cfg *config.Config, h *handler.Handlers, hub *websocket.Hub) *gin.Eng
 
 	// Apply global middleware
 	r.Use(middleware.CORS())
+
+	// Swagger documentation (no auth required)
+	r.GET("/swagger/*any", ginswagger.WrapHandler(files.Handler))
 
 	// Health check (no auth required)
 	r.GET("/health", h.Health.Check)

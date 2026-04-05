@@ -89,6 +89,13 @@ func NewLeaderboardHandler(queries *dbsqlc.Queries, cfg *config.Config) *Leaderb
 type HealthHandler struct{}
 
 // Check returns a simple health status response
+//
+//	@Summary		Health check
+//	@Description	Returns the health status of the API server
+//	@Tags			Health
+//	@Produce		json
+//	@Success		200		{object}	object
+//	@Router			/health [get]
 func (h *HealthHandler) Check(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"status": "healthy",

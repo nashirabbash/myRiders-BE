@@ -16,6 +16,18 @@ import (
 )
 
 // Follow handles POST /users/:id/follow
+//
+//	@Summary		Follow a user
+//	@Description	Follow another user to see their rides in your feed
+//	@Tags			Social
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path	string	true	"User ID to follow (UUID format)"
+//	@Success		200		{object}	object
+//	@Failure		400		{object}	ErrorResponse	"Invalid ID or cannot follow self"
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Failure		404		{object}	ErrorResponse	"User not found"
+//	@Router			/v1/users/{id}/follow [post]
 func (h *SocialHandler) Follow(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
@@ -70,6 +82,17 @@ func (h *SocialHandler) Follow(c *gin.Context) {
 }
 
 // Unfollow handles DELETE /users/:id/follow
+//
+//	@Summary		Unfollow a user
+//	@Description	Stop following another user
+//	@Tags			Social
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path	string	true	"User ID to unfollow (UUID format)"
+//	@Success		200		{object}	object
+//	@Failure		400		{object}	ErrorResponse	"Invalid ID"
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Router			/v1/users/{id}/follow [delete]
 func (h *SocialHandler) Unfollow(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
@@ -107,6 +130,18 @@ func (h *SocialHandler) Unfollow(c *gin.Context) {
 }
 
 // LikeRide handles POST /rides/:id/like
+//
+//	@Summary		Like a ride
+//	@Description	Like another user's ride. If this is a new like and the ride owner has push notifications enabled, a notification is sent.
+//	@Tags			Social
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path	string	true	"Ride ID (UUID format)"
+//	@Success		200		{object}	object
+//	@Failure		400		{object}	ErrorResponse	"Invalid ID"
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Failure		404		{object}	ErrorResponse	"Ride not found"
+//	@Router			/v1/rides/{id}/like [post]
 func (h *SocialHandler) LikeRide(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
@@ -197,6 +232,21 @@ func (h *SocialHandler) LikeRide(c *gin.Context) {
 }
 
 // CommentRide handles POST /rides/:id/comments
+//
+//	@Summary		Comment on a ride
+//	@Description	Add a comment to a ride. If the ride owner has push notifications enabled, a notification is sent.
+//	@Tags			Social
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path	string	true	"Ride ID (UUID format)"
+//	@Param			body	body	object	true	"Comment data (content required, max 280 chars)"
+//	@Success		201		{object}	object
+//	@Failure		400		{object}	ErrorResponse	"Invalid ID"
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Failure		404		{object}	ErrorResponse	"Ride not found"
+//	@Failure		422		{object}	ErrorResponse	"Validation error"
+//	@Router			/v1/rides/{id}/comments [post]
 func (h *SocialHandler) CommentRide(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
@@ -322,6 +372,17 @@ type OwnerInfo struct {
 }
 
 // GetFeed handles GET /feed
+//
+//	@Summary		Get user feed
+//	@Description	Retrieve rides from users you are following, with pagination and user's like status
+//	@Tags			Social
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			page	query	int	false	"Page number (default: 1)"
+//	@Param			limit	query	int	false	"Items per page, max 100 (default: 20)"
+//	@Success		200		{object}	object
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Router			/v1/feed [get]
 func (h *SocialHandler) GetFeed(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {

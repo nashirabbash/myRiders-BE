@@ -55,6 +55,15 @@ func mapVehicleToResponse(v dbsqlc.Vehicle) VehicleResponse {
 }
 
 // List returns all vehicles belonging to the authenticated user
+//
+//	@Summary		List user vehicles
+//	@Description	Retrieve all vehicles owned by the authenticated user
+//	@Tags			Vehicles
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200		{array}		VehicleResponse
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Router			/v1/vehicles [get]
 func (h *VehiclesHandler) List(c *gin.Context) {
 	userUUID, ok := middleware.GetUserUUID(c)
 	if !ok {
@@ -79,6 +88,18 @@ func (h *VehiclesHandler) List(c *gin.Context) {
 }
 
 // Create adds a new vehicle for the authenticated user
+//
+//	@Summary		Create new vehicle
+//	@Description	Create a new vehicle for the authenticated user. Type must be one of: motor, mobil, sepeda
+//	@Tags			Vehicles
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			body	body		CreateVehicleRequest	true	"Vehicle data"
+//	@Success		201		{object}	VehicleResponse
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Failure		422		{object}	ErrorResponse	"Validation error"
+//	@Router			/v1/vehicles [post]
 func (h *VehiclesHandler) Create(c *gin.Context) {
 	userUUID, ok := middleware.GetUserUUID(c)
 	if !ok {
@@ -109,6 +130,21 @@ func (h *VehiclesHandler) Create(c *gin.Context) {
 }
 
 // Update modifies an existing vehicle
+//
+//	@Summary		Update vehicle
+//	@Description	Update a vehicle owned by the authenticated user. All fields are optional.
+//	@Tags			Vehicles
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		string					true	"Vehicle ID (UUID format)"
+//	@Param			body	body		UpdateVehicleRequest	true	"Vehicle update data"
+//	@Success		200		{object}	VehicleResponse
+//	@Failure		400		{object}	ErrorResponse	"Invalid ID format"
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Failure		404		{object}	ErrorResponse	"Vehicle not found"
+//	@Failure		422		{object}	ErrorResponse	"Validation error"
+//	@Router			/v1/vehicles/{id} [put]
 func (h *VehiclesHandler) Update(c *gin.Context) {
 	userUUID, ok := middleware.GetUserUUID(c)
 	if !ok {
@@ -197,6 +233,18 @@ func (h *VehiclesHandler) Update(c *gin.Context) {
 }
 
 // Delete removes a vehicle (after checking it's not being used in active rides)
+//
+//	@Summary		Delete vehicle
+//	@Description	Delete a vehicle owned by the authenticated user. Cannot delete if vehicle is in use in active rides.
+//	@Tags			Vehicles
+//	@Security		BearerAuth
+//	@Param			id	path	string	true	"Vehicle ID (UUID format)"
+//	@Success		204
+//	@Failure		400		{object}	ErrorResponse	"Invalid ID format"
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Failure		404		{object}	ErrorResponse	"Vehicle not found"
+//	@Failure		409		{object}	ErrorResponse	"Vehicle is in use"
+//	@Router			/v1/vehicles/{id} [delete]
 func (h *VehiclesHandler) Delete(c *gin.Context) {
 	userUUID, ok := middleware.GetUserUUID(c)
 	if !ok {
