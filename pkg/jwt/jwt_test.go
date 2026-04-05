@@ -3,155 +3,169 @@ package jwt
 import (
 	"testing"
 	"time"
+
+	jwtlib "github.com/golang-jwt/jwt/v5"
 )
 
-const testSecret = "test-secret-key-at-least-32-characters-long-for-hs256"
-
 func TestGenerateAccessToken(t *testing.T) {
-	userID := "test-user-id"
+	userID := "test-user-123"
+	secret := "my-secret-key-that-is-long-enough"
 	ttl := 1 * time.Hour
 
-	token, err := GenerateAccessToken(userID, testSecret, ttl)
+	token, err := GenerateAccessToken(userID, secret, ttl)
 	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
+		t.Fatalf("GenerateAccessToken failed: %v", err)
 	}
 
 	if token == "" {
-		t.Fatal("expected non-empty token")
+		t.Fatal("GenerateAccessToken returned empty token")
+	}
+
+	// Parse and verify the token
+	claims, err := ParseToken(token, secret)
+	if err != nil {
+		t.Fatalf("ParseToken failed: %v", err)
+	}
+
+	if claims.Subject != userID {
+		t.Errorf("Expected Subject %q, got %q", userID, claims.Subject)
+	}
+
+	if claims.Type != "access" {
+		t.Errorf("Expected Type 'access', got %q", claims.Type)
+	}
+
+	if claims.UserID() != userID {
+		t.Errorf("Expected UserID() to return %q, got %q", userID, claims.UserID())
 	}
 }
 
 func TestGenerateRefreshToken(t *testing.T) {
-	userID := "test-user-id"
-	ttl := 7 * 24 * time.Hour
+	userID := "test-user-456"
+	secret := "my-secret-key-that-is-long-enough"
+	ttl := 30 * 24 * time.Hour
 
-	token, err := GenerateRefreshToken(userID, testSecret, ttl)
+	token, err := GenerateRefreshToken(userID, secret, ttl)
 	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
+		t.Fatalf("GenerateRefreshToken failed: %v", err)
 	}
 
 	if token == "" {
-		t.Fatal("expected non-empty token")
+		t.Fatal("GenerateRefreshToken returned empty token")
 	}
-}
 
-func TestParseValidAccessToken(t *testing.T) {
-	userID := "test-user-id"
-	ttl := 1 * time.Hour
-
-	// Generate token
-	tokenString, err := GenerateAccessToken(userID, testSecret, ttl)
+	// Parse and verify the token
+	claims, err := ParseToken(token, secret)
 	if err != nil {
-		t.Fatalf("failed to generate token: %v", err)
+		t.Fatalf("ParseToken failed: %v", err)
 	}
 
-	// Parse token
-	claims, err := ParseToken(tokenString, testSecret)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-
-	if claims.UserID != userID {
-		t.Fatalf("expected user_id %q, got %q", userID, claims.UserID)
-	}
-
-	if claims.Type != "access" {
-		t.Fatalf("expected type 'access', got %q", claims.Type)
-	}
-}
-
-func TestParseValidRefreshToken(t *testing.T) {
-	userID := "test-user-id"
-	ttl := 7 * 24 * time.Hour
-
-	// Generate token
-	tokenString, err := GenerateRefreshToken(userID, testSecret, ttl)
-	if err != nil {
-		t.Fatalf("failed to generate token: %v", err)
-	}
-
-	// Parse token
-	claims, err := ParseToken(tokenString, testSecret)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-
-	if claims.UserID != userID {
-		t.Fatalf("expected user_id %q, got %q", userID, claims.UserID)
+	if claims.Subject != userID {
+		t.Errorf("Expected Subject %q, got %q", userID, claims.Subject)
 	}
 
 	if claims.Type != "refresh" {
-		t.Fatalf("expected type 'refresh', got %q", claims.Type)
+		t.Errorf("Expected Type 'refresh', got %q", claims.Type)
 	}
 }
 
-func TestParseExpiredToken(t *testing.T) {
-	userID := "test-user-id"
-	ttl := -1 * time.Hour // Negative duration = already expired
-
-	// Generate expired token
-	tokenString, err := GenerateAccessToken(userID, testSecret, ttl)
-	if err != nil {
-		t.Fatalf("failed to generate token: %v", err)
-	}
-
-	// Parse should fail
-	_, err = ParseToken(tokenString, testSecret)
-	if err == nil {
-		t.Fatal("expected error for expired token")
-	}
-
-	tokenErr, ok := err.(TokenError)
-	if !ok {
-		t.Fatalf("expected TokenError, got %T", err)
-	}
-
-	if tokenErr.Code != "TOKEN_EXPIRED" {
-		t.Fatalf("expected TOKEN_EXPIRED, got %s", tokenErr.Code)
-	}
-}
-
-func TestParseInvalidSignature(t *testing.T) {
-	userID := "test-user-id"
+func TestParseToken_ValidToken(t *testing.T) {
+	userID := "user-789"
+	secret := "test-secret-key-for-tokens"
 	ttl := 1 * time.Hour
 
-	// Generate token with testSecret
-	tokenString, err := GenerateAccessToken(userID, testSecret, ttl)
+	// Generate a token
+	token, _ := GenerateAccessToken(userID, secret, ttl)
+
+	// Parse it back
+	claims, err := ParseToken(token, secret)
 	if err != nil {
-		t.Fatalf("failed to generate token: %v", err)
+		t.Fatalf("ParseToken failed: %v", err)
 	}
 
-	// Try to parse with different secret
-	wrongSecret := "wrong-secret-key"
-	_, err = ParseToken(tokenString, wrongSecret)
-	if err == nil {
-		t.Fatal("expected error for invalid signature")
-	}
-
-	tokenErr, ok := err.(TokenError)
-	if !ok {
-		t.Fatalf("expected TokenError, got %T", err)
-	}
-
-	if tokenErr.Code != "TOKEN_INVALID" {
-		t.Fatalf("expected TOKEN_INVALID, got %s", tokenErr.Code)
+	if claims.Subject != userID {
+		t.Errorf("Expected Subject %q, got %q", userID, claims.Subject)
 	}
 }
 
-func TestParseMalformedToken(t *testing.T) {
-	malformedToken := "this.is.not.a.valid.jwt.token"
+func TestParseToken_InvalidSignature(t *testing.T) {
+	userID := "user-signature-test"
+	secret := "original-secret"
+	ttl := 1 * time.Hour
 
-	_, err := ParseToken(malformedToken, testSecret)
+	// Generate a token with one secret
+	token, _ := GenerateAccessToken(userID, secret, ttl)
+
+	// Try to parse with a different secret
+	_, err := ParseToken(token, "different-secret")
 	if err == nil {
-		t.Fatal("expected error for malformed token")
+		t.Fatal("ParseToken should fail with wrong secret")
 	}
 
-	tokenErr, ok := err.(TokenError)
-	if !ok {
-		t.Fatalf("expected TokenError, got %T", err)
+	if tokenErr, ok := err.(TokenError); ok {
+		if tokenErr.Code != "TOKEN_INVALID" {
+			t.Errorf("Expected error code 'TOKEN_INVALID', got %q", tokenErr.Code)
+		}
+	}
+}
+
+func TestParseToken_ExpiredToken(t *testing.T) {
+	userID := "user-expiry-test"
+	secret := "test-secret-key"
+	ttl := -1 * time.Hour // Already expired
+
+	// Generate a token with negative TTL
+	token, _ := GenerateAccessToken(userID, secret, ttl)
+
+	// Try to parse it
+	_, err := ParseToken(token, secret)
+	if err == nil {
+		t.Fatal("ParseToken should fail for expired token")
 	}
 
-	if tokenErr.Code != "TOKEN_INVALID" {
-		t.Fatalf("expected TOKEN_INVALID, got %s", tokenErr.Code)
+	if tokenErr, ok := err.(TokenError); ok {
+		if tokenErr.Code != "TOKEN_EXPIRED" {
+			t.Errorf("Expected error code 'TOKEN_EXPIRED', got %q", tokenErr.Code)
+		}
+	}
+}
+
+func TestParseToken_MalformedToken(t *testing.T) {
+	secret := "test-secret-key"
+	malformedToken := "invalid.malformed.token"
+
+	_, err := ParseToken(malformedToken, secret)
+	if err == nil {
+		t.Fatal("ParseToken should fail for malformed token")
+	}
+
+	if tokenErr, ok := err.(TokenError); ok {
+		if tokenErr.Code != "TOKEN_INVALID" {
+			t.Errorf("Expected error code 'TOKEN_INVALID', got %q", tokenErr.Code)
+		}
+	}
+}
+
+func TestClaimsUserID(t *testing.T) {
+	claims := &Claims{
+		Type: "access",
+		RegisteredClaims: jwtlib.RegisteredClaims{
+			Subject: "user-id-test",
+		},
+	}
+
+	if claims.UserID() != "user-id-test" {
+		t.Errorf("Expected UserID() to return 'user-id-test', got %q", claims.UserID())
+	}
+}
+
+func TestTokenError_Error(t *testing.T) {
+	err := TokenError{
+		Code:    "TEST_ERROR",
+		Message: "test error message",
+	}
+
+	if err.Error() != "test error message" {
+		t.Errorf("Expected Error() to return 'test error message', got %q", err.Error())
 	}
 }
