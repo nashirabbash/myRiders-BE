@@ -71,7 +71,32 @@ type RefreshResponse struct {
 	ExpiresIn   int64  `json:"expires_in"`
 }
 
+// ErrorResponse is the standard error response
+type ErrorResponse struct {
+	Error  string `json:"error"`
+	Detail string `json:"detail,omitempty"`
+}
+
+// MessageResponse is the standard message response
+type MessageResponse struct {
+	Message string `json:"message"`
+}
+
+// GenericResponse is a generic map response for flexible endpoints
+type GenericResponse map[string]interface{}
+
 // Register handles user registration
+//
+//	@Summary		Register a new user
+//	@Description	Create a new user account and receive access and refresh tokens
+//	@Tags			Auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		RegisterRequest	true	"Registration credentials"
+//	@Success		201		{object}	RegisterResponse
+//	@Failure		409		{object}	ErrorResponse	"Email or username already taken"
+//	@Failure		422		{object}	ErrorResponse	"Validation error"
+//	@Router			/v1/auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -105,6 +130,17 @@ func (h *AuthHandler) Register(c *gin.Context) {
 }
 
 // Login handles user authentication
+//
+//	@Summary		Login user
+//	@Description	Authenticate user and receive access and refresh tokens
+//	@Tags			Auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		LoginRequest	true	"Login credentials"
+//	@Success		200		{object}	LoginResponse
+//	@Failure		401		{object}	ErrorResponse	"Invalid credentials"
+//	@Failure		422		{object}	ErrorResponse	"Validation error"
+//	@Router			/v1/auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -136,6 +172,17 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 // Refresh handles refresh token exchange
+//
+//	@Summary		Refresh access token
+//	@Description	Exchange refresh token for a new access token
+//	@Tags			Auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		RefreshRequest	true	"Refresh token"
+//	@Success		200		{object}	RefreshResponse
+//	@Failure		401		{object}	ErrorResponse	"Invalid refresh token"
+//	@Failure		422		{object}	ErrorResponse	"Validation error"
+//	@Router			/v1/auth/refresh [post]
 func (h *AuthHandler) Refresh(c *gin.Context) {
 	var req RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -157,6 +204,15 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 }
 
 // Logout handles user logout
+//
+//	@Summary		Logout user
+//	@Description	Logout the authenticated user. Note: For MVP, this is stateless and the client should discard the token.
+//	@Tags			Auth
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200		{object}	MessageResponse
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Router			/v1/auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
 	// For MVP, logout is stateless (just client discards token)
 	// Future: implement token blacklist in Redis if needed

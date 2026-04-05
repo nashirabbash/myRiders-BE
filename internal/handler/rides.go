@@ -11,6 +11,19 @@ import (
 )
 
 // Start handles POST /rides/start
+//
+//	@Summary		Start a new ride
+//	@Description	Create and start a new ride for a specific vehicle. Returns a ws_token for WebSocket connection.
+//	@Tags			Rides
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			body	body	object	true	"Ride start data (vehicle_id required, title optional)"
+//	@Success		201		{object}	object
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Failure		404		{object}	ErrorResponse	"Vehicle not found"
+//	@Failure		422		{object}	ErrorResponse	"Validation error"
+//	@Router			/v1/rides/start [post]
 func (h *RidesHandler) Start(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
@@ -44,6 +57,17 @@ func (h *RidesHandler) Start(c *gin.Context) {
 }
 
 // Stop handles POST /rides/:id/stop
+//
+//	@Summary		Stop a ride
+//	@Description	Stop an active ride and compute metrics (distance, duration, calories, elevation gain)
+//	@Tags			Rides
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path	string	true	"Ride ID (UUID format)"
+//	@Success		200		{object}	object
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Failure		404		{object}	ErrorResponse	"Ride not found"
+//	@Router			/v1/rides/{id}/stop [post]
 func (h *RidesHandler) Stop(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
@@ -62,6 +86,18 @@ func (h *RidesHandler) Stop(c *gin.Context) {
 }
 
 // List handles GET /rides
+//
+//	@Summary		List user rides
+//	@Description	Retrieve completed rides with pagination and optional filtering by vehicle type
+//	@Tags			Rides
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			page			query	int		false	"Page number (default: 1)"
+//	@Param			limit			query	int		false	"Items per page, max 100 (default: 20)"
+//	@Param			vehicle_type	query	string	false	"Filter by vehicle type (motor, mobil, sepeda)"
+//	@Success		200		{object}	object
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Router			/v1/rides [get]
 func (h *RidesHandler) List(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
@@ -95,6 +131,17 @@ func (h *RidesHandler) List(c *gin.Context) {
 }
 
 // GetByID handles GET /rides/:id
+//
+//	@Summary		Get ride details
+//	@Description	Retrieve detailed information about a specific ride
+//	@Tags			Rides
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path	string	true	"Ride ID (UUID format)"
+//	@Success		200		{object}	object
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Failure		404		{object}	ErrorResponse	"Ride not found"
+//	@Router			/v1/rides/{id} [get]
 func (h *RidesHandler) GetByID(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {

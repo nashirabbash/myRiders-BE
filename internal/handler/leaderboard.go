@@ -31,6 +31,20 @@ type LeaderboardEntryResponse struct {
 //   - limit (default: 20, max: 100)
 //
 // Note: "all-time" leaderboard is not yet implemented. Use "monthly" for longer-term rankings.
+//
+//	@Summary		Get global leaderboard
+//	@Description	Retrieve the global leaderboard with optional filtering by vehicle type and period
+//	@Tags			Leaderboard
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			period_type		query	string	false	"Period type: 'weekly' or 'monthly' (default: weekly)"
+//	@Param			vehicle_type	query	string	false	"Filter by vehicle: 'motor', 'mobil', or 'sepeda'"
+//	@Param			page			query	int		false	"Page number (default: 1)"
+//	@Param			limit			query	int		false	"Items per page, max 100 (default: 20)"
+//	@Success		200		{object}	object
+//	@Failure		400		{object}	ErrorResponse	"Invalid query parameters"
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Router			/v1/leaderboard [get]
 func (h *LeaderboardHandler) GetGlobal(c *gin.Context) {
 	// Parse query parameters
 	periodType := c.DefaultQuery("period_type", "weekly")
@@ -139,6 +153,20 @@ func (h *LeaderboardHandler) GetGlobal(c *gin.Context) {
 //   - limit (default: 20, max: 100)
 //
 // Note: Only returns rankings of users you follow. "all-time" leaderboard not yet implemented.
+//
+//	@Summary		Get friends leaderboard
+//	@Description	Retrieve leaderboard rankings for users you follow, with optional filtering by vehicle type and period
+//	@Tags			Leaderboard
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			period_type		query	string	false	"Period type: 'weekly' or 'monthly' (default: weekly)"
+//	@Param			vehicle_type	query	string	false	"Filter by vehicle: 'motor', 'mobil', or 'sepeda'"
+//	@Param			page			query	int		false	"Page number (default: 1)"
+//	@Param			limit			query	int		false	"Items per page, max 100 (default: 20)"
+//	@Success		200		{object}	object
+//	@Failure		400		{object}	ErrorResponse	"Invalid query parameters"
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Router			/v1/leaderboard/friends [get]
 func (h *LeaderboardHandler) GetFriends(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
