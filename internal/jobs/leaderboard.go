@@ -117,22 +117,26 @@ func (j *LeaderboardJob) computeWeeklyRankings(ctx context.Context, periodStart 
 	}
 
 	// Bulk insert all-vehicle rankings efficiently using COPY FROM
-	allVehicleParams := make([]sqlc.InsertLeaderboardEntriesBulkParams, len(allRankings))
-	for rank, row := range allRankings {
-		allVehicleParams[rank] = sqlc.InsertLeaderboardEntriesBulkParams{
-			UserID:      row.UserID,
-			VehicleType: sqlc.NullVehicleType{}, // NULL for all vehicles
-			PeriodType:  "weekly",
-			PeriodStart: periodStartDate,
-			TotalKm:     row.TotalKm,
-			TotalRides:  int32(row.TotalRides),
-			Rank:        int32(rank + 1),
+	if len(allRankings) > 0 {
+		allVehicleParams := make([]sqlc.InsertLeaderboardEntriesBulkParams, len(allRankings))
+		for rank, row := range allRankings {
+			allVehicleParams[rank] = sqlc.InsertLeaderboardEntriesBulkParams{
+				UserID:      row.UserID,
+				VehicleType: sqlc.NullVehicleType{}, // NULL for all vehicles
+				PeriodType:  "weekly",
+				PeriodStart: periodStartDate,
+				TotalKm:     row.TotalKm,
+				TotalRides:  int32(row.TotalRides),
+				Rank:        int32(rank + 1),
+			}
 		}
+		if _, err := txQueries.InsertLeaderboardEntriesBulk(ctx, allVehicleParams); err != nil {
+			return fmt.Errorf("failed to bulk insert all-vehicle rankings: %w", err)
+		}
+		log.Printf("[Leaderboard] Inserted %d all-vehicle weekly rankings (bulk)", len(allRankings))
+	} else {
+		log.Printf("[Leaderboard] No all-vehicle rankings to insert for weekly period")
 	}
-	if _, err := txQueries.InsertLeaderboardEntriesBulk(ctx, allVehicleParams); err != nil {
-		return fmt.Errorf("failed to bulk insert all-vehicle rankings: %w", err)
-	}
-	log.Printf("[Leaderboard] Inserted %d all-vehicle weekly rankings (bulk)", len(allRankings))
 
 	// Compute and insert vehicle-specific rankings
 	vehicleTypes := []sqlc.VehicleType{"motor", "mobil", "sepeda"}
@@ -146,22 +150,26 @@ func (j *LeaderboardJob) computeWeeklyRankings(ctx context.Context, periodStart 
 		}
 
 		// Bulk insert vehicle-specific rankings efficiently using COPY FROM
-		vehicleParams := make([]sqlc.InsertLeaderboardEntriesBulkParams, len(vehicleRankings))
-		for rank, row := range vehicleRankings {
-			vehicleParams[rank] = sqlc.InsertLeaderboardEntriesBulkParams{
-				UserID:      row.UserID,
-				VehicleType: sqlc.NullVehicleType{VehicleType: vehicleType, Valid: true},
-				PeriodType:  "weekly",
-				PeriodStart: periodStartDate,
-				TotalKm:     row.TotalKm,
-				TotalRides:  int32(row.TotalRides),
-				Rank:        int32(rank + 1),
+		if len(vehicleRankings) > 0 {
+			vehicleParams := make([]sqlc.InsertLeaderboardEntriesBulkParams, len(vehicleRankings))
+			for rank, row := range vehicleRankings {
+				vehicleParams[rank] = sqlc.InsertLeaderboardEntriesBulkParams{
+					UserID:      row.UserID,
+					VehicleType: sqlc.NullVehicleType{VehicleType: vehicleType, Valid: true},
+					PeriodType:  "weekly",
+					PeriodStart: periodStartDate,
+					TotalKm:     row.TotalKm,
+					TotalRides:  int32(row.TotalRides),
+					Rank:        int32(rank + 1),
+				}
 			}
+			if _, err := txQueries.InsertLeaderboardEntriesBulk(ctx, vehicleParams); err != nil {
+				return fmt.Errorf("failed to bulk insert %s weekly rankings: %w", vehicleType, err)
+			}
+			log.Printf("[Leaderboard] Inserted %d %s weekly rankings (bulk)", len(vehicleRankings), vehicleType)
+		} else {
+			log.Printf("[Leaderboard] No %s rankings to insert for weekly period", vehicleType)
 		}
-		if _, err := txQueries.InsertLeaderboardEntriesBulk(ctx, vehicleParams); err != nil {
-			return fmt.Errorf("failed to bulk insert %s weekly rankings: %w", vehicleType, err)
-		}
-		log.Printf("[Leaderboard] Inserted %d %s weekly rankings (bulk)", len(vehicleRankings), vehicleType)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -195,22 +203,26 @@ func (j *LeaderboardJob) computeMonthlyRankings(ctx context.Context, periodStart
 	}
 
 	// Bulk insert all-vehicle rankings efficiently using COPY FROM
-	allVehicleParams := make([]sqlc.InsertLeaderboardEntriesBulkParams, len(allRankings))
-	for rank, row := range allRankings {
-		allVehicleParams[rank] = sqlc.InsertLeaderboardEntriesBulkParams{
-			UserID:      row.UserID,
-			VehicleType: sqlc.NullVehicleType{}, // NULL for all vehicles
-			PeriodType:  "monthly",
-			PeriodStart: periodStartDate,
-			TotalKm:     row.TotalKm,
-			TotalRides:  int32(row.TotalRides),
-			Rank:        int32(rank + 1),
+	if len(allRankings) > 0 {
+		allVehicleParams := make([]sqlc.InsertLeaderboardEntriesBulkParams, len(allRankings))
+		for rank, row := range allRankings {
+			allVehicleParams[rank] = sqlc.InsertLeaderboardEntriesBulkParams{
+				UserID:      row.UserID,
+				VehicleType: sqlc.NullVehicleType{}, // NULL for all vehicles
+				PeriodType:  "monthly",
+				PeriodStart: periodStartDate,
+				TotalKm:     row.TotalKm,
+				TotalRides:  int32(row.TotalRides),
+				Rank:        int32(rank + 1),
+			}
 		}
+		if _, err := txQueries.InsertLeaderboardEntriesBulk(ctx, allVehicleParams); err != nil {
+			return fmt.Errorf("failed to bulk insert all-vehicle rankings: %w", err)
+		}
+		log.Printf("[Leaderboard] Inserted %d all-vehicle monthly rankings (bulk)", len(allRankings))
+	} else {
+		log.Printf("[Leaderboard] No all-vehicle rankings to insert for monthly period")
 	}
-	if _, err := txQueries.InsertLeaderboardEntriesBulk(ctx, allVehicleParams); err != nil {
-		return fmt.Errorf("failed to bulk insert all-vehicle rankings: %w", err)
-	}
-	log.Printf("[Leaderboard] Inserted %d all-vehicle monthly rankings (bulk)", len(allRankings))
 
 	// Compute and insert vehicle-specific rankings
 	vehicleTypes := []sqlc.VehicleType{"motor", "mobil", "sepeda"}
@@ -224,22 +236,26 @@ func (j *LeaderboardJob) computeMonthlyRankings(ctx context.Context, periodStart
 		}
 
 		// Bulk insert vehicle-specific rankings efficiently using COPY FROM
-		vehicleParams := make([]sqlc.InsertLeaderboardEntriesBulkParams, len(vehicleRankings))
-		for rank, row := range vehicleRankings {
-			vehicleParams[rank] = sqlc.InsertLeaderboardEntriesBulkParams{
-				UserID:      row.UserID,
-				VehicleType: sqlc.NullVehicleType{VehicleType: vehicleType, Valid: true},
-				PeriodType:  "monthly",
-				PeriodStart: periodStartDate,
-				TotalKm:     row.TotalKm,
-				TotalRides:  int32(row.TotalRides),
-				Rank:        int32(rank + 1),
+		if len(vehicleRankings) > 0 {
+			vehicleParams := make([]sqlc.InsertLeaderboardEntriesBulkParams, len(vehicleRankings))
+			for rank, row := range vehicleRankings {
+				vehicleParams[rank] = sqlc.InsertLeaderboardEntriesBulkParams{
+					UserID:      row.UserID,
+					VehicleType: sqlc.NullVehicleType{VehicleType: vehicleType, Valid: true},
+					PeriodType:  "monthly",
+					PeriodStart: periodStartDate,
+					TotalKm:     row.TotalKm,
+					TotalRides:  int32(row.TotalRides),
+					Rank:        int32(rank + 1),
+				}
 			}
+			if _, err := txQueries.InsertLeaderboardEntriesBulk(ctx, vehicleParams); err != nil {
+				return fmt.Errorf("failed to bulk insert %s monthly rankings: %w", vehicleType, err)
+			}
+			log.Printf("[Leaderboard] Inserted %d %s monthly rankings (bulk)", len(vehicleRankings), vehicleType)
+		} else {
+			log.Printf("[Leaderboard] No %s rankings to insert for monthly period", vehicleType)
 		}
-		if _, err := txQueries.InsertLeaderboardEntriesBulk(ctx, vehicleParams); err != nil {
-			return fmt.Errorf("failed to bulk insert %s monthly rankings: %w", vehicleType, err)
-		}
-		log.Printf("[Leaderboard] Inserted %d %s monthly rankings (bulk)", len(vehicleRankings), vehicleType)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
