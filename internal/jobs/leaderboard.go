@@ -242,28 +242,18 @@ func (j *LeaderboardJob) computeMonthlyRankings(ctx context.Context, periodStart
 	return nil
 }
 
-// deleteLeaderboardPeriod deletes all leaderboard entries for a given period
+// deleteLeaderboardPeriod deletes all leaderboard entries for a given period in a single query
 func deleteLeaderboardPeriod(ctx context.Context, txQueries *sqlc.Queries, periodType string, periodStartDate pgtype.Date) error {
-	// Delete all-vehicle entries
-	deleteParams := sqlc.DeleteLeaderboardEntriesParams{
+	// Simplified: Single query deletes all entries (all-vehicle and vehicle-specific) for the period
+	deleteParams := sqlc.DeleteLeaderboardPeriodParams{
 		PeriodType:  periodType,
 		PeriodStart: periodStartDate,
-		VehicleType: sqlc.NullVehicleType{}, // NULL for all vehicles
 	}
-	if err := txQueries.DeleteLeaderboardEntries(ctx, deleteParams); err != nil {
-		return fmt.Errorf("failed to delete old all-vehicle entries: %w", err)
-	}
-
-	// Delete vehicle-specific entries
-	vehicleTypes := []sqlc.VehicleType{"motor", "mobil", "sepeda"}
-	for _, vehicleType := range vehicleTypes {
-		deleteParams.VehicleType = sqlc.NullVehicleType{VehicleType: vehicleType, Valid: true}
-		if err := txQueries.DeleteLeaderboardEntries(ctx, deleteParams); err != nil {
-			return fmt.Errorf("failed to delete old %s entries: %w", vehicleType, err)
-		}
+	if err := txQueries.DeleteLeaderboardPeriod(ctx, deleteParams); err != nil {
+		return fmt.Errorf("failed to delete old entries for period: %w", err)
 	}
 
-	log.Printf("[Leaderboard] Deleted old entries for %s period starting %s", periodType, periodStartDate.Time.Format("2006-01-02"))
+	log.Printf("[Leaderboard] Deleted all entries for %s period starting %s", periodType, periodStartDate.Time.Format("2006-01-02"))
 	return nil
 }
 
