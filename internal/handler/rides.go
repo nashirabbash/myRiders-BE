@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	domainerrors "github.com/nashirabbash/trackride/internal/errors"
 	"github.com/nashirabbash/trackride/internal/middleware"
 )
 
@@ -13,7 +14,7 @@ import (
 func (h *RidesHandler) Start(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
+		RespondWithError(c, domainerrors.ErrUnauthorized)
 		return
 	}
 
@@ -22,13 +23,13 @@ func (h *RidesHandler) Start(c *gin.Context) {
 		Title     string `json:"title"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "VALIDATION_ERROR", "detail": err.Error()})
+		RespondWithValidationError(c, err.Error())
 		return
 	}
 
 	ride, wsToken, err := h.service.StartRide(c, userID, req.VehicleID, req.Title)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		RespondWithError(c, err)
 		return
 	}
 
@@ -46,18 +47,14 @@ func (h *RidesHandler) Start(c *gin.Context) {
 func (h *RidesHandler) Stop(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
+		RespondWithError(c, domainerrors.ErrUnauthorized)
 		return
 	}
 
 	rideID := c.Param("id")
 	ride, err := h.service.StopRide(c, rideID, userID)
 	if err != nil {
-		statusCode := http.StatusNotFound
-		if err.Error() == "RIDE_NOT_ACTIVE" {
-			statusCode = http.StatusBadRequest
-		}
-		c.JSON(statusCode, gin.H{"error": err.Error()})
+		RespondWithError(c, err)
 		return
 	}
 
@@ -68,7 +65,7 @@ func (h *RidesHandler) Stop(c *gin.Context) {
 func (h *RidesHandler) List(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
+		RespondWithError(c, domainerrors.ErrUnauthorized)
 		return
 	}
 
@@ -85,7 +82,7 @@ func (h *RidesHandler) List(c *gin.Context) {
 
 	rides, total, err := h.service.ListRides(c, userID, vehicleType, page, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+		RespondWithError(c, domainerrors.ErrInternalServerError)
 		return
 	}
 
@@ -101,14 +98,14 @@ func (h *RidesHandler) List(c *gin.Context) {
 func (h *RidesHandler) GetByID(c *gin.Context) {
 	userID, ok := middleware.GetUserID(c)
 	if !ok {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
+		RespondWithError(c, domainerrors.ErrUnauthorized)
 		return
 	}
 
 	rideID := c.Param("id")
 	ride, err := h.service.GetRideByID(c, rideID, userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "RIDE_NOT_FOUND"})
+		RespondWithError(c, err)
 		return
 	}
 
