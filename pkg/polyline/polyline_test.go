@@ -160,7 +160,7 @@ func TestEncode_PrecisionPreserved(t *testing.T) {
 	decoded := Decode(encoded)
 
 	// At 5 decimal places, precision is about 1.1 meters
-	tolerance := 0.0001
+	tolerance := 0.00001
 	latDiff := math.Abs(decoded[0][0] - coords[0][0])
 	lngDiff := math.Abs(decoded[0][1] - coords[0][1])
 

@@ -22,8 +22,8 @@ redis-cli --version # Should show 7.x or higher
 ## Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/nashirabbash/trackride.git
-cd trackride
+git clone https://github.com/nashirabbash/myRiders-BE.git
+cd myRiders-BE
 ```
 
 ## Step 2: Set Up PostgreSQL
@@ -126,7 +126,7 @@ sqlc generate
 # Connect to the database
 psql -U trackride -d trackride -h localhost
 
-# Copy and paste the SQL from db/migrations/001_init.sql
+# Copy and paste the SQL from internal/db/migrations/001_init.sql
 \i internal/db/migrations/001_init.sql
 \i internal/db/migrations/002_indexes.sql
 

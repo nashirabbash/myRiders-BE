@@ -75,7 +75,10 @@ func TestParseToken_ValidToken(t *testing.T) {
 	ttl := 1 * time.Hour
 
 	// Generate a token
-	token, _ := GenerateAccessToken(userID, secret, ttl)
+	token, err := GenerateAccessToken(userID, secret, ttl)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken failed: %v", err)
+	}
 
 	// Parse it back
 	claims, err := ParseToken(token, secret)
@@ -94,18 +97,23 @@ func TestParseToken_InvalidSignature(t *testing.T) {
 	ttl := 1 * time.Hour
 
 	// Generate a token with one secret
-	token, _ := GenerateAccessToken(userID, secret, ttl)
+	token, err := GenerateAccessToken(userID, secret, ttl)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken failed: %v", err)
+	}
 
 	// Try to parse with a different secret
-	_, err := ParseToken(token, "different-secret")
+	_, err = ParseToken(token, "different-secret")
 	if err == nil {
 		t.Fatal("ParseToken should fail with wrong secret")
 	}
 
-	if tokenErr, ok := err.(TokenError); ok {
-		if tokenErr.Code != "TOKEN_INVALID" {
-			t.Errorf("Expected error code 'TOKEN_INVALID', got %q", tokenErr.Code)
-		}
+	tokenErr, ok := err.(TokenError)
+	if !ok {
+		t.Fatalf("Expected TokenError, got %T: %v", err, err)
+	}
+	if tokenErr.Code != "TOKEN_INVALID" {
+		t.Errorf("Expected error code 'TOKEN_INVALID', got %q", tokenErr.Code)
 	}
 }
 
@@ -115,18 +123,23 @@ func TestParseToken_ExpiredToken(t *testing.T) {
 	ttl := -1 * time.Hour // Already expired
 
 	// Generate a token with negative TTL
-	token, _ := GenerateAccessToken(userID, secret, ttl)
+	token, err := GenerateAccessToken(userID, secret, ttl)
+	if err != nil {
+		t.Fatalf("GenerateAccessToken failed: %v", err)
+	}
 
 	// Try to parse it
-	_, err := ParseToken(token, secret)
+	_, err = ParseToken(token, secret)
 	if err == nil {
 		t.Fatal("ParseToken should fail for expired token")
 	}
 
-	if tokenErr, ok := err.(TokenError); ok {
-		if tokenErr.Code != "TOKEN_EXPIRED" {
-			t.Errorf("Expected error code 'TOKEN_EXPIRED', got %q", tokenErr.Code)
-		}
+	tokenErr, ok := err.(TokenError)
+	if !ok {
+		t.Fatalf("Expected TokenError, got %T: %v", err, err)
+	}
+	if tokenErr.Code != "TOKEN_EXPIRED" {
+		t.Errorf("Expected error code 'TOKEN_EXPIRED', got %q", tokenErr.Code)
 	}
 }
 
@@ -139,10 +152,12 @@ func TestParseToken_MalformedToken(t *testing.T) {
 		t.Fatal("ParseToken should fail for malformed token")
 	}
 
-	if tokenErr, ok := err.(TokenError); ok {
-		if tokenErr.Code != "TOKEN_INVALID" {
-			t.Errorf("Expected error code 'TOKEN_INVALID', got %q", tokenErr.Code)
-		}
+	tokenErr, ok := err.(TokenError)
+	if !ok {
+		t.Fatalf("Expected TokenError, got %T: %v", err, err)
+	}
+	if tokenErr.Code != "TOKEN_INVALID" {
+		t.Errorf("Expected error code 'TOKEN_INVALID', got %q", tokenErr.Code)
 	}
 }
 

@@ -27,14 +27,14 @@ func (h *RidesHandler) Start(c *gin.Context) {
 		return
 	}
 
-	ride, wsToken, err := h.service.StartRide(c, userID, req.VehicleID, req.Title)
+	ride, wsToken, err := h.service.StartRide(c.Request.Context(), userID, req.VehicleID, req.Title)
 	if err != nil {
 		RespondWithError(c, err)
 		return
 	}
 
 	// Store ws_token in Redis with 10-minute TTL
-	h.redis.SetEx(c, "ws_token:"+wsToken, userID+":"+ride.ID.String(), 10*time.Minute)
+	h.redis.SetEx(c.Request.Context(), "ws_token:"+wsToken, userID+":"+ride.ID.String(), 10*time.Minute)
 
 	c.JSON(http.StatusCreated, gin.H{
 		"ride_id":  ride.ID,
@@ -52,7 +52,7 @@ func (h *RidesHandler) Stop(c *gin.Context) {
 	}
 
 	rideID := c.Param("id")
-	ride, err := h.service.StopRide(c, rideID, userID)
+	ride, err := h.service.StopRide(c.Request.Context(), rideID, userID)
 	if err != nil {
 		RespondWithError(c, err)
 		return
@@ -80,9 +80,9 @@ func (h *RidesHandler) List(c *gin.Context) {
 		limit = 20
 	}
 
-	rides, total, err := h.service.ListRides(c, userID, vehicleType, page, limit)
+	rides, total, err := h.service.ListRides(c.Request.Context(), userID, vehicleType, page, limit)
 	if err != nil {
-		RespondWithError(c, domainerrors.ErrInternalServerError)
+		RespondWithError(c, err)
 		return
 	}
 
@@ -103,7 +103,7 @@ func (h *RidesHandler) GetByID(c *gin.Context) {
 	}
 
 	rideID := c.Param("id")
-	ride, err := h.service.GetRideByID(c, rideID, userID)
+	ride, err := h.service.GetRideByID(c.Request.Context(), rideID, userID)
 	if err != nil {
 		RespondWithError(c, err)
 		return

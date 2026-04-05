@@ -3,9 +3,11 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 	"github.com/nashirabbash/trackride/internal/config"
 	"github.com/nashirabbash/trackride/internal/db/sqlc"
@@ -97,6 +99,13 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (*sqlc.
 		DisplayName:  req.DisplayName,
 	})
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			if strings.Contains(pgErr.ConstraintName, "email") {
+				return nil, nil, domainerrors.ErrEmailTaken
+			}
+			return nil, nil, domainerrors.ErrUsernameTaken
+		}
 		return nil, nil, domainerrors.ErrInternalServerError
 	}
 
@@ -169,6 +178,9 @@ func (s *AuthService) RefreshAccessToken(refreshTokenStr string) (string, int64,
 	// Parse refresh token
 	claims, err := jwtpkg.ParseToken(refreshTokenStr, s.cfg.JWTRefreshSecret)
 	if err != nil {
+		if tokenErr, ok := err.(jwtpkg.TokenError); ok && tokenErr.Code == "TOKEN_EXPIRED" {
+			return "", 0, domainerrors.ErrTokenExpired
+		}
 		return "", 0, domainerrors.ErrTokenInvalid
 	}
 
