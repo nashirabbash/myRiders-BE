@@ -2,8 +2,9 @@
 INSERT INTO leaderboard_entries (user_id, vehicle_type, period_type, period_start, total_km, total_rides, rank)
 VALUES ($1, $2, $3, $4, $5, $6, $7);
 
--- Bulk insert is handled in code using transactions with InsertLeaderboardEntry
--- See: internal/jobs/leaderboard.go for transaction-based insertion pattern
+-- name: InsertLeaderboardEntriesBulk :copyfrom
+INSERT INTO leaderboard_entries (user_id, vehicle_type, period_type, period_start, total_km, total_rides, rank)
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: DeleteLeaderboardEntries :exec
 DELETE FROM leaderboard_entries
