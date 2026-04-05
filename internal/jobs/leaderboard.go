@@ -116,6 +116,7 @@ func (j *LeaderboardJob) computeWeeklyRankings(ctx context.Context, periodStart 
 		return fmt.Errorf("failed to compute weekly rankings: %w", err)
 	}
 
+	// TODO: Optimize N+1 INSERT queries by using bulk insert with sqlc :copyfrom or unnesting arrays
 	for rank, row := range allRankings {
 		insertParams := sqlc.InsertLeaderboardEntryParams{
 			UserID:      row.UserID,
@@ -190,6 +191,7 @@ func (j *LeaderboardJob) computeMonthlyRankings(ctx context.Context, periodStart
 		return fmt.Errorf("failed to compute monthly rankings: %w", err)
 	}
 
+	// TODO: Optimize N+1 INSERT queries by using bulk insert with sqlc :copyfrom or unnesting arrays
 	for rank, row := range allRankings {
 		insertParams := sqlc.InsertLeaderboardEntryParams{
 			UserID:      row.UserID,

@@ -1,0 +1,216 @@
+
+internal/handler/handlers.go
+  @@ -72,20 +72,7 @@
+  -// GetFeed placeholder
+  -func (h *SocialHandler) GetFeed(c *gin.Context) {}
+  -
+  -// Follow placeholder
+  -func (h *SocialHandler) Follow(c *gin.Context) {}
+  -
+  -// Unfollow placeholder
+  -func (h *SocialHandler) Unfollow(c *gin.Context) {}
+  -
+  -// LikeRide placeholder
+  -func (h *SocialHandler) LikeRide(c *gin.Context) {}
+  -
+  -// CommentRide placeholder
+  -func (h *SocialHandler) CommentRide(c *gin.Context) {}
+  +// Methods GetFeed, Follow, Unfollow, LikeRide, CommentRide are defined in social.go
+   
+   // LeaderboardHandler manages leaderboard endpoints
+   type LeaderboardHandler struct {
+  +1 -14
+
+internal/handler/social.go
+  @@ -0,0 +1,377 @@
+  +package handler
+  +
+  +import (
+  +	"encoding/json"
+  +	"errors"
+  +	"net/http"
+  +	"strconv"
+  +
+  +	"github.com/gin-gonic/gin"
+  +	"github.com/jackc/pgx/v5"
+  +	"github.com/nashirabbash/trackride/internal/db/sqlc"
+  +	"github.com/nashirabbash/trackride/internal/middleware"
+  +	"github.com/nashirabbash/trackride/internal/service"
+  +)
+  +
+  +// Follow handles POST /users/:id/follow
+  +func (h *SocialHandler) Follow(c *gin.Context) {
+  +	userID, ok := middleware.GetUserID(c)
+  +	if !ok {
+  +		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
+  +		return
+  +	}
+  +
+  +	targetUserID := c.Param("id")
+  +
+  +	// Prevent self-follow
+  +	if userID == targetUserID {
+  +		c.JSON(http.StatusBadRequest, gin.H{"error": "CANNOT_FOLLOW_SELF"})
+  +		return
+  +	}
+  +
+  +	// Parse UUIDs
+  +	followerID, err := parseUUID(userID)
+  +	if err != nil {
+  +		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_USER_ID"})
+  +		return
+  +	}
+  +
+  +	followingID, err := parseUUID(targetUserID)
+  +	if err != nil {
+  +		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_ID"})
+  +		return
+  +	}
+  +
+  +	// Check if target user exists
+  +	_, err = h.queries.GetUserByID(c.Request.Context(), followingID)
+  +	if err != nil {
+  +		if errors.Is(err, pgx.ErrNoRows) {
+  +			c.JSON(http.StatusNotFound, gin.H{"error": "USER_NOT_FOUND"})
+  +		} else {
+  +			c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+  +		}
+  +		return
+  +	}
+  +
+  +	// Insert follow relationship (ON CONFLICT DO NOTHING handles duplicates)
+  +	err = h.queries.FollowUser(c.Request.Context(), sqlc.FollowUserParams{
+  +		FollowerID:  followerID,
+  +		FollowingID: followingID,
+  +	})
+  +	if err != nil {
+  +		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+  +		return
+  +	}
+  +
+  +	c.JSON(http.StatusOK, gin.H{"message": "FOLLOW_SUCCESS"})
+  +}
+  +
+  +// Unfollow handles DELETE /users/:id/follow
+  +func (h *SocialHandler) Unfollow(c *gin.Context) {
+  +	userID, ok := middleware.GetUserID(c)
+  +	if !ok {
+  +		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "UNAUTHORIZED"})
+  +		return
+  +	}
+  +
+  +	targetUserID := c.Param("id")
+  +
+  +	// Parse UUIDs
+  +	followerID, err := parseUUID(userID)
+  +	if err != nil {
+  +		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_USER_ID"})
+  +		return
+  +	}
+  +
+  +	followingID, err := parseUUID(targetUserID)
+  +	if err != nil {
+  +		c.JSON(http.StatusBadRequest, gin.H{"error": "INVALID_ID"})
+  +		return
+  +	}
+  +
+  +	// Delete follow relationship
+  +	err = h.queries.UnfollowUser(c.Request.Context(), sqlc.UnfollowUserParams{
+  +		FollowerID:  followerID,
+  +		FollowingID: followingID,
+  +	})
+  +	if err != nil {
+  +		c.JSON(http.StatusInternalServerError, gin.H{"error": "INTERNAL_ERROR"})
+  +		return
+  +	}
+  ... (277 lines truncated)
+  +377 -0
+
+internal/service/notifications.go
+  @@ -0,0 +1,84 @@
+  +package service
+  +
+  +import (
+  +	"bytes"
+  +	"context"
+  +	"encoding/json"
+  +	"net/http"
+  +)
+  +
+  +// NotificationService handles push notifications via Expo Push API
+  +type NotificationService struct {
+  +	client *http.Client
+  +}
+  +
+  +// NewNotificationService creates a new notification service
+  +func NewNotificationService() *NotificationService {
+  +	return &NotificationService{
+  +		client: &http.Client{},
+  +	}
+  +}
+  +
+  +// expoPushPayload represents the request payload for Expo Push API
+  +type expoPushPayload struct {
+  +	To    string `json:"to"`
+  +	Title string `json:"title"`
+  +	Body  string `json:"body"`
+  +	Sound string `json:"sound"`
+  +	Badge int    `json:"badge"`
+  +}
+  +
+  +// SendLikeNotification sends a push notification when a ride receives a like
+  +func (ns *NotificationService) SendLikeNotification(ctx context.Context, pushToken, likerName, rideTitle string) error {
+  +	title := "New Like!"
+  +	body := likerName + " liked your ride \"" + rideTitle + "\""
+  +
+  +	payload := expoPushPayload{
+  +		To:    pushToken,
+  +		Title: title,
+  +		Body:  body,
+  +		Sound: "default",
+  +		Badge: 1,
+  +	}
+  +
+  +	return ns.sendNotification(ctx, payload)
+  +}
+  +
+  +// SendCommentNotification sends a push notification when a ride receives a comment
+  +func (ns *NotificationService) SendCommentNotification(ctx context.Context, pushToken, commenterName, rideTitle string) error {
+  +	title := "New Comment!"
+  +	body := commenterName + " commented on your ride \"" + rideTitle + "\""
+  +
+  +	payload := expoPushPayload{
+  +		To:    pushToken,
+  +		Title: title,
+  +		Body:  body,
+  +		Sound: "default",
+  +		Badge: 1,
+  +	}
+  +
+  +	return ns.sendNotification(ctx, payload)
+  +}
+  +
+  +// sendNotification sends the actual HTTP request to Expo Push API
+  +func (ns *NotificationService) sendNotification(ctx context.Context, payload expoPushPayload) error {
+  +	body, err := json.Marshal(payload)
+  +	if err != nil {
+  +		return err
+  +	}
+  +
+  +	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://exp.host/--/api/v2/push/send", bytes.NewReader(body))
+  +	if err != nil {
+  +		return err
+  +	}
+  +
+  +	req.Header.Set("Content-Type", "application/json")
+  +
+  +	resp, err := ns.client.Do(req)
+  +	if err != nil {
+  +		return err
+  +	}
+  +	defer resp.Body.Close()
+  +
+  +	return nil
+  +}
+  +84 -0
+[full diff: rtk git diff --no-compact]

@@ -64,7 +64,7 @@ func (h *LeaderboardHandler) GetGlobal(c *gin.Context) {
 	limitInt32 := int32(limit)
 
 	// Calculate period_start based on period_type
-	periodStart := calculatePeriodStart(periodType)
+	periodStart := h.calculatePeriodStart(periodType)
 	periodStartDate := pgtype.Date{
 		Time:  periodStart,
 		Valid: true,
@@ -185,7 +185,7 @@ func (h *LeaderboardHandler) GetFriends(c *gin.Context) {
 	limitInt32 := int32(limit)
 
 	// Calculate period_start based on period_type
-	periodStart := calculatePeriodStart(periodType)
+	periodStart := h.calculatePeriodStart(periodType)
 	periodStartDate := pgtype.Date{
 		Time:  periodStart,
 		Valid: true,
@@ -255,9 +255,10 @@ func (h *LeaderboardHandler) GetFriends(c *gin.Context) {
 }
 
 // calculatePeriodStart calculates the period_start date based on period_type
-// Explicitly truncates timestamps to midnight in UTC
-func calculatePeriodStart(periodType string) time.Time {
-	now := time.Now().UTC()
+// Uses the same timezone as the cron job to ensure date consistency
+func (h *LeaderboardHandler) calculatePeriodStart(periodType string) time.Time {
+	loc := mustLoadLocation(h.cfg.LeaderboardTimezone)
+	now := time.Now().In(loc)
 	switch periodType {
 	case "weekly":
 		// Get the Monday of the current week, explicitly truncated to midnight
@@ -266,10 +267,10 @@ func calculatePeriodStart(periodType string) time.Time {
 			daysBack += 7
 		}
 		d := now.AddDate(0, 0, -daysBack)
-		return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC)
+		return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, loc)
 	case "monthly":
 		// Get the first day of the current month, explicitly truncated to midnight
-		return time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+		return time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
 	default:
 		// Default to weekly
 		daysBack := int(now.Weekday()) - int(time.Monday)
@@ -277,6 +278,15 @@ func calculatePeriodStart(periodType string) time.Time {
 			daysBack += 7
 		}
 		d := now.AddDate(0, 0, -daysBack)
-		return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC)
+		return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, loc)
 	}
+}
+
+// mustLoadLocation loads a timezone location, defaulting to UTC on error
+func mustLoadLocation(name string) *time.Location {
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		return time.UTC
+	}
+	return loc
 }
